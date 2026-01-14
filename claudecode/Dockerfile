@@ -58,9 +58,11 @@ RUN mkdir -p \
 # Set up PATH
 ENV PATH="/root/.local/bin:${PATH}"
 
-# Copy run script
-COPY run.sh /
-RUN chmod a+x /run.sh
+# Copy run script and ensure it's executable with correct line endings
+COPY run.sh /run.sh
+RUN chmod 755 /run.sh && \
+    sed -i 's/\r$//' /run.sh && \
+    head -1 /run.sh
 
 # Set working directory
 WORKDIR /homeassistant
@@ -69,5 +71,6 @@ WORKDIR /homeassistant
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -sf http://localhost:7681/ || exit 1
 
-ENTRYPOINT []
-CMD [ "/run.sh" ]
+# Override base image entrypoint completely
+ENTRYPOINT ["/bin/bash"]
+CMD ["/run.sh"]
