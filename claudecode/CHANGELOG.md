@@ -2,10 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.36] - 2026-01-14
+
+### Fixed
+- Reverted `/config` symlink that caused 502 startup errors
+
 ## [1.2.35] - 2026-01-14
 
 ### Added
-- Symlink `/config` → `/homeassistant` for HA path compatibility
+- Symlink `/config` → `/homeassistant` for HA path compatibility (reverted in 1.2.36)
 
 ## [1.2.34] - 2026-01-14
 
