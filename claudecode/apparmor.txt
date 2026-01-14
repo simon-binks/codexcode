@@ -11,6 +11,13 @@ profile claudecode flags=(attach_disconnected,mediate_deleted) {
   capability chown,
   capability fowner,
   capability dac_override,
+  capability sys_tty_config,
+
+  # PTY access for ttyd terminal
+  /dev/ptmx rw,
+  /dev/pts/* rw,
+  /dev/tty rw,
+  /dev/tty* rw,
 
   # Network access
   network inet stream,
