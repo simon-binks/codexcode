@@ -74,6 +74,29 @@ WORKDIR /homeassistant
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -sf http://localhost:7681/ || exit 1
 
-# Run ttyd directly - no script needed
+# Startup script that reads config and persists Claude auth
 ENTRYPOINT []
-CMD ["/bin/bash", "-c", "cd /homeassistant && exec ttyd --port 7681 --writable --ping-interval 30 --max-clients 5 bash --login"]
+CMD ["/bin/bash", "-c", "\
+  mkdir -p /data/claude && \
+  rm -rf /root/.claude && \
+  ln -sf /data/claude /root/.claude && \
+  FONT_SIZE=$(jq -r '.terminal_font_size // 14' /data/options.json) && \
+  THEME=$(jq -r '.terminal_theme // \"dark\"' /data/options.json) && \
+  PERSIST=$(jq -r '.session_persistence // true' /data/options.json) && \
+  if [ \"$THEME\" = \"dark\" ]; then \
+    COLORS='background=#1e1e2e,foreground=#cdd6f4,cursor=#f5e0dc'; \
+  else \
+    COLORS='background=#eff1f5,foreground=#4c4f69,cursor=#dc8a78'; \
+  fi && \
+  if [ \"$PERSIST\" = \"true\" ]; then \
+    SHELL_CMD='tmux new-session -A -s claude'; \
+  else \
+    SHELL_CMD='bash --login'; \
+  fi && \
+  cd /homeassistant && \
+  exec ttyd --port 7681 --writable --ping-interval 30 --max-clients 5 \
+    -t fontSize=$FONT_SIZE \
+    -t fontFamily=Monaco,Consolas,monospace \
+    -t \"theme=$COLORS\" \
+    $SHELL_CMD \
+"]

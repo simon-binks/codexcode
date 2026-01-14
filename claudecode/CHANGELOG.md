@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.17] - 2026-01-14
+
+### Fixed
+- Persist Claude Code authentication across restarts
+- Symlink /root/.claude to /data/claude for persistent storage
+- Restored config reading for font size, theme, and session persistence
+
+## [1.2.16] - 2026-01-14
+
+### Fixed
+- Restored config reading for font size, theme, and session persistence
+- ttyd now applies terminal_font_size, terminal_theme, and session_persistence settings
+
 ## [1.2.15] - 2026-01-14
 
 ### Fixed
