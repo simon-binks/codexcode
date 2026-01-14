@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.25] - 2026-01-14
+
+### Fixed
+- MCP configuration was never created - hass-mcp integration now works
+- Added MCP setup to Dockerfile CMD (run.sh was not being executed)
+- `/mcp` command now shows Home Assistant MCP server when `enable_mcp: true`
+
 ## [1.2.24] - 2026-01-14
 
 ### Added

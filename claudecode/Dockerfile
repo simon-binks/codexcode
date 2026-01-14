@@ -88,20 +88,28 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 # Use /homeassistant/.claudecode which is always persistent
 ENTRYPOINT []
 CMD ["/bin/bash", "-c", "\
-  PERSIST=/homeassistant/.claudecode && \
-  mkdir -p $PERSIST/config /root/.config && \
-  if [ ! -L /root/.claude ]; then rm -rf /root/.claude; ln -s $PERSIST /root/.claude; fi && \
-  if [ ! -L /root/.config/claude-code ]; then rm -rf /root/.config/claude-code; ln -s $PERSIST/config /root/.config/claude-code; fi && \
-  if [ ! -L /root/.claude.json ]; then touch $PERSIST/.claude.json; rm -f /root/.claude.json; ln -s $PERSIST/.claude.json /root/.claude.json; fi && \
+  PERSIST_DIR=/homeassistant/.claudecode && \
+  mkdir -p $PERSIST_DIR/config /root/.config && \
+  if [ ! -L /root/.claude ]; then rm -rf /root/.claude; ln -s $PERSIST_DIR /root/.claude; fi && \
+  if [ ! -L /root/.config/claude-code ]; then rm -rf /root/.config/claude-code; ln -s $PERSIST_DIR/config /root/.config/claude-code; fi && \
+  if [ ! -L /root/.claude.json ]; then touch $PERSIST_DIR/.claude.json; rm -f /root/.claude.json; ln -s $PERSIST_DIR/.claude.json /root/.claude.json; fi && \
   FONT_SIZE=$(jq -r '.terminal_font_size // 14' /data/options.json) && \
   THEME=$(jq -r '.terminal_theme // \"dark\"' /data/options.json) && \
-  PERSIST=$(jq -r '.session_persistence // true' /data/options.json) && \
+  SESSION_PERSIST=$(jq -r '.session_persistence // true' /data/options.json) && \
+  ENABLE_MCP=$(jq -r '.enable_mcp // true' /data/options.json) && \
+  if [ \"$ENABLE_MCP\" = \"true\" ]; then \
+    echo '{\"mcpServers\":{\"homeassistant\":{\"command\":\"hass-mcp\",\"env\":{\"HASS_TOKEN\":\"'\"$SUPERVISOR_TOKEN\"'\",\"HASS_HOST\":\"http://supervisor/core\"}}}}' > /root/.claude/settings.json; \
+    echo '[INFO] MCP configured with Home Assistant integration'; \
+  else \
+    echo '{}' > /root/.claude/settings.json; \
+    echo '[INFO] MCP disabled'; \
+  fi && \
   if [ \"$THEME\" = \"dark\" ]; then \
     COLORS='background=#1e1e2e,foreground=#cdd6f4,cursor=#f5e0dc'; \
   else \
     COLORS='background=#eff1f5,foreground=#4c4f69,cursor=#dc8a78'; \
   fi && \
-  if [ \"$PERSIST\" = \"true\" ]; then \
+  if [ \"$SESSION_PERSIST\" = \"true\" ]; then \
     SHELL_CMD='tmux new-session -A -s claude'; \
   else \
     SHELL_CMD='bash --login'; \
