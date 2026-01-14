@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.37] - 2026-01-14
+
+### Added
+- Auto-generated `~/.claude/CLAUDE.md` with path mapping instructions
+- Claude Code now knows `/config` → `/homeassistant` translation
+
 ## [1.2.36] - 2026-01-14
 
 ### Fixed

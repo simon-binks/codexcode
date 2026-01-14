@@ -109,6 +109,31 @@ CMD ["/bin/bash", "-c", "\
   export HA_URL=\"http://supervisor/core\" && \
   PERSIST_DIR=/homeassistant/.claudecode && \
   mkdir -p $PERSIST_DIR/config /root/.config && \
+  printf '%s\n' \
+    '# Claude Code - Home Assistant Add-on' \
+    '' \
+    '## Path Mapping' \
+    '' \
+    'In this add-on container, paths are mapped differently than HA Core:' \
+    '- \\`/homeassistant\\` = HA config directory (equivalent to \\`/config\\` in HA Core)' \
+    '- \\`/config\\` does NOT exist - always use \\`/homeassistant\\`' \
+    '' \
+    'When users mention \\`/config/...\\`, translate to \\`/homeassistant/...\\`' \
+    '' \
+    '## Available Paths' \
+    '' \
+    '| Path | Description | Access |' \
+    '|------|-------------|--------|' \
+    '| \\`/homeassistant\\` | HA configuration | read-write |' \
+    '| \\`/share\\` | Shared folder | read-write |' \
+    '| \\`/media\\` | Media files | read-write |' \
+    '| \\`/ssl\\` | SSL certificates | read-only |' \
+    '| \\`/backup\\` | Backups | read-only |' \
+    '' \
+    '## Home Assistant Integration' \
+    '' \
+    'Use the \\`homeassistant\\` MCP server to query entities and call services.' \
+    > $PERSIST_DIR/CLAUDE.md && \
   if [ ! -L /root/.claude ]; then rm -rf /root/.claude; ln -s $PERSIST_DIR /root/.claude; fi && \
   if [ ! -L /root/.config/claude-code ]; then rm -rf /root/.config/claude-code; ln -s $PERSIST_DIR/config /root/.config/claude-code; fi && \
   if [ ! -L /root/.claude.json ]; then touch $PERSIST_DIR/.claude.json; rm -f /root/.claude.json; ln -s $PERSIST_DIR/.claude.json /root/.claude.json; fi && \
