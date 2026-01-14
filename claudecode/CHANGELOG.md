@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.39] - 2026-01-14
+
+### Added
+- CLAUDE.md now includes Home Assistant logging instructions
+  - Log levels explanation (debug, info, warning, error)
+  - Commands to read and filter logs
+  - How to enable debug logging for integrations
+
 ## [1.2.38] - 2026-01-14
 
 ### Added

@@ -133,6 +133,36 @@ CMD ["/bin/bash", "-c", "\
     '## Home Assistant Integration' \
     '' \
     'Use the \\`homeassistant\\` MCP server to query entities and call services.' \
+    '' \
+    '## Reading Home Assistant Logs' \
+    '' \
+    '**Log levels (from most to least verbose):**' \
+    '- \\`debug\\` - Only shown if explicitly enabled in configuration.yaml' \
+    '- \\`info\\` - General information, shown by default' \
+    '- \\`warning\\` - Warnings, always shown' \
+    '- \\`error\\` - Errors, always shown' \
+    '' \
+    '**Commands to read logs:**' \
+    '\\`\\`\\`bash' \
+    '# View recent logs' \
+    'ha core logs 2>&1 | tail -100' \
+    '' \
+    '# Filter by keyword' \
+    'ha core logs 2>&1 | grep -i asterisk' \
+    '' \
+    '# Filter errors only' \
+    'ha core logs 2>&1 | grep -iE \"(error|exception)\"' \
+    '\\`\\`\\`' \
+    '' \
+    '**To enable debug logging for an integration**, add to \\`configuration.yaml\\`:' \
+    '\\`\\`\\`yaml' \
+    'logger:' \
+    '  default: info' \
+    '  logs:' \
+    '    custom_components.YOUR_INTEGRATION: debug' \
+    '\\`\\`\\`' \
+    '' \
+    '**Key insight:** \\`_LOGGER.debug()\\` calls are invisible unless the logger level is set to debug. Use \\`_LOGGER.info()\\` or \\`_LOGGER.warning()\\` for logs that should always appear.' \
     > $PERSIST_DIR/CLAUDE.md && \
   if [ ! -L /root/.claude ]; then rm -rf /root/.claude; ln -s $PERSIST_DIR /root/.claude; fi && \
   if [ ! -L /root/.config/claude-code ]; then rm -rf /root/.config/claude-code; ln -s $PERSIST_DIR/config /root/.config/claude-code; fi && \
