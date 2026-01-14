@@ -116,6 +116,11 @@ CMD ["/bin/bash", "-c", "\
   THEME=$(jq -r '.terminal_theme // \"dark\"' /data/options.json) && \
   SESSION_PERSIST=$(jq -r '.session_persistence // true' /data/options.json) && \
   ENABLE_MCP=$(jq -r '.enable_mcp // true' /data/options.json) && \
+  AUTO_UPDATE=$(jq -r '.auto_update_claude // true' /data/options.json) && \
+  if [ \"$AUTO_UPDATE\" = \"true\" ]; then \
+    echo '[INFO] Checking for Claude Code updates...' && \
+    npm update -g @anthropic-ai/claude-code 2>/dev/null || echo '[WARN] Update check failed, continuing...'; \
+  fi && \
   claude mcp remove homeassistant 2>/dev/null || true && \
   if [ \"$ENABLE_MCP\" = \"true\" ]; then \
     claude mcp add-json homeassistant '{\"command\":\"hass-mcp\"}' && \

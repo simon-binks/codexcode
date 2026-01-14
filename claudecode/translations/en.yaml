@@ -25,6 +25,11 @@ configuration:
     description: >-
       Enable tmux session persistence. When enabled, your terminal session
       survives browser refreshes and disconnects. Recommended for long-running tasks.
+  auto_update_claude:
+    name: Auto-update Claude Code
+    description: >-
+      Automatically check for and install Claude Code updates on add-on startup.
+      Keeps Claude Code current without requiring add-on version bumps.
 
 network:
   7681/tcp: Web Terminal (ttyd)

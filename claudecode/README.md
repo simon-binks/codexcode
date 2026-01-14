@@ -99,6 +99,7 @@ claude --continue
 | `terminal_theme` | dark or light | dark |
 | `working_directory` | Start directory | /homeassistant |
 | `session_persistence` | Use tmux for persistent sessions | true |
+| `auto_update_claude` | Auto-update Claude Code on startup | true |
 
 ## File Locations
 

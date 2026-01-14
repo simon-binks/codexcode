@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.34] - 2026-01-14
+
+### Added
+- Auto-update Claude Code option (`auto_update_claude`) - checks for updates on startup
+- Keeps Claude Code current without requiring add-on version bumps
+
 ## [1.2.33] - 2026-01-14
 
 ### Added

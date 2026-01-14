@@ -26,6 +26,11 @@ configuration:
       Habilita persistencia de sesión via tmux. Cuando está habilitado, tu sesión
       del terminal sobrevive a actualizaciones del navegador y desconexiones.
       Recomendado para tareas de larga duración.
+  auto_update_claude:
+    name: Actualización Automática de Claude Code
+    description: >-
+      Verifica e instala automáticamente actualizaciones de Claude Code al iniciar el add-on.
+      Mantiene Claude Code actualizado sin necesidad de actualizar la versión del add-on.
 
 network:
   7681/tcp: Terminal Web (ttyd)
