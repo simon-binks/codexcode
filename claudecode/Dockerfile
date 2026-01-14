@@ -98,6 +98,7 @@ CMD ["/bin/bash", "-c", "\
   exec ttyd --port 7681 --writable --ping-interval 30 --max-clients 5 \
     -t fontSize=$FONT_SIZE \
     -t fontFamily=Monaco,Consolas,monospace \
+    -t scrollback=20000 \
     -t \"theme=$COLORS\" \
     $SHELL_CMD \
 "]

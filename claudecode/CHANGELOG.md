@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.22] - 2026-01-14
+
+### Added
+- Increased terminal scrollback buffer to 20,000 lines
+
 ## [1.2.21] - 2026-01-14
 
 ### Reverted
