@@ -1,0 +1,10 @@
+configuration:
+  anthropic_api_key:
+    name: Anthropic API Key
+    description: Your Anthropic API key for Claude Code authentication. Get one at https://console.anthropic.com/
+  enable_mcp:
+    name: Enable MCP Integration
+    description: Enable Home Assistant MCP server for direct entity and service access from Claude Code.
+  working_directory:
+    name: Working Directory
+    description: The default working directory when Claude Code starts.

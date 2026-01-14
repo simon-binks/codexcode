@@ -1,0 +1,74 @@
+#include <tunables/global>
+
+profile claudecode flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Capabilities
+  capability net_admin,
+  capability net_raw,
+  capability setgid,
+  capability setuid,
+  capability chown,
+  capability fowner,
+  capability dac_override,
+
+  # Network access
+  network inet stream,
+  network inet6 stream,
+  network inet dgram,
+  network inet6 dgram,
+
+  # S6-Overlay
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/s6/** rix,
+  /etc/s6-overlay/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /etc/services.d/** rwix,
+
+  # Bashio
+  /usr/lib/bashio/** ix,
+  /tmp/** rw,
+
+  # Access to options.json and other files within /data
+  /data/** rw,
+
+  # Access to mapped directories
+  /homeassistant/** rw,
+  /ssl/** r,
+  /share/** rw,
+  /config/** rw,
+
+  # Claude Code and Node.js
+  /usr/lib/node_modules/** ix,
+  /root/** rwk,
+  /root/.claude/** rwk,
+  /root/.local/** rwk,
+  /root/.npm/** rwk,
+
+  # ttyd
+  /usr/bin/ttyd ix,
+
+  # Python and pip (for hass-mcp)
+  /usr/lib/python*/** ix,
+  /usr/bin/python* ix,
+
+  # Git operations
+  /usr/bin/git ix,
+  /usr/libexec/git-core/** ix,
+
+  # Proc and sys access
+  /proc/*/fd/** rw,
+  /proc/*/net/** r,
+  /sys/kernel/** r,
+
+  # Deny write access to system paths
+  deny /bin/** w,
+  deny /usr/bin/** w,
+  deny /etc/** w,
+}

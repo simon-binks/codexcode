@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(dir /ah \"C:\\\\source\\\\GitHub\\\\claudecode-hass-integration\")",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:developers.home-assistant.io)",
+      "Bash(tree:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:pkgs.alpinelinux.org)",
+      "Bash(Get-ChildItem -Path \"C:\\\\source\\\\GitHub\\\\claudecode-hass-integration\" -Recurse -Name)",
+      "Bash(Where-Object { $_ -notmatch \"^\\\\.git\\\\\" })",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial release: Claude Code Home Assistant Add-on\n\nFeatures:\n- Web terminal \\(ttyd\\) accessible from HA sidebar via ingress\n- Claude Code CLI for AI-assisted automation creation and debugging\n- Read-write access to Home Assistant configuration\n- hass-mcp integration for direct HA entity/service interaction\n- Multi-architecture support \\(amd64, aarch64, armv7, armhf, i386\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

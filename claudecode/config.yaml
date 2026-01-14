@@ -1,0 +1,36 @@
+name: Claude Code
+description: Run Claude Code AI assistant inside Home Assistant to create automations, debug issues, and manage your smart home configuration
+version: "1.0.0"
+slug: claudecode
+url: https://github.com/robsonfelix/claudecode-hass-integration
+arch:
+  - amd64
+  - aarch64
+  - armv7
+  - armhf
+  - i386
+startup: application
+boot: auto
+ingress: true
+ingress_port: 7681
+ingress_stream: true
+panel_icon: mdi:console
+panel_title: Claude Code
+homeassistant_api: true
+auth_api: true
+hassio_api: true
+map:
+  - homeassistant_config:rw
+  - ssl:ro
+  - share:rw
+  - addon_config:rw
+options:
+  anthropic_api_key: ""
+  enable_mcp: true
+  working_directory: /homeassistant
+schema:
+  anthropic_api_key: str
+  enable_mcp: bool
+  working_directory: str
+environment:
+  TERM: xterm-256color
