@@ -3,7 +3,7 @@
 profile claudecode flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
-  # Capabilities
+  # Capabilities needed for terminal and networking
   capability net_admin,
   capability net_raw,
   capability setgid,
@@ -11,77 +11,60 @@ profile claudecode flags=(attach_disconnected,mediate_deleted) {
   capability chown,
   capability fowner,
   capability dac_override,
+  capability dac_read_search,
   capability sys_tty_config,
 
-  # PTY access for ttyd terminal
+  # Network access for Claude API and hass-mcp
+  network,
+
+  # PTY/TTY access for terminal
   /dev/ptmx rw,
   /dev/pts/* rw,
-  /dev/tty rw,
   /dev/tty* rw,
+  /dev/null rw,
+  /dev/zero r,
+  /dev/urandom r,
 
-  # Network access
-  network inet stream,
-  network inet6 stream,
-  network inet dgram,
-  network inet6 dgram,
-
-  # S6-Overlay
-  /init ix,
-  /bin/** ix,
-  /usr/bin/** ix,
-  /run/{s6,s6-rc*,service}/** ix,
-  /package/** ix,
-  /command/** ix,
-  /etc/s6/** rix,
-  /etc/s6-overlay/** rwix,
-  /etc/cont-init.d/** rwix,
-  /etc/cont-finish.d/** rwix,
-  /etc/services.d/** rwix,
-
-  # Bashio
-  /usr/lib/bashio/** ix,
-  /tmp/** rw,
-
-  # Access to options.json and other files within /data
-  /data/** rw,
-
-  # Access to mapped directories
-  /homeassistant/** rw,
-  /ssl/** r,
-  /share/** rw,
-  /config/** rw,
-
-  # Claude Code and Node.js
-  /usr/lib/node_modules/** ix,
-  /root/** rwk,
-  /root/.claude/** rwk,
-  /root/.local/** rwk,
-  /root/.npm/** rwk,
-
-  # ttyd
-  /usr/bin/ttyd ix,
-
-  # Python and pip (for hass-mcp)
-  /usr/lib/python*/** ix,
-  /usr/bin/python* ix,
-
-  # Git operations
-  /usr/bin/git ix,
-  /usr/libexec/git-core/** ix,
-
-  # Proc and sys access
-  /proc/*/fd/** rw,
-  /proc/*/net/** r,
-  /sys/kernel/** r,
-
-  # System config read access
+  # System files (read-only)
   /etc/** r,
-  /etc/profile r,
-  /etc/bash/** r,
-  /etc/terminfo/** r,
+  /usr/** r,
+  /lib/** r,
+  /proc/** r,
+  /sys/** r,
 
-  # Deny write access to system paths
-  deny /bin/** w,
-  deny /usr/bin/** w,
-  deny /etc/** w,
+  # Execute permissions for binaries
+  /bin/** ixr,
+  /usr/bin/** ixr,
+  /usr/lib/** ixmr,
+  /usr/local/** ixr,
+  /usr/libexec/** ixr,
+
+  # Add-on data
+  /data/** rwk,
+
+  # Home Assistant config - main working directory
+  /homeassistant/ r,
+  /homeassistant/** rwk,
+
+  # Other mapped HA directories
+  /ssl/ r,
+  /ssl/** r,
+  /share/ r,
+  /share/** rwk,
+  /media/ r,
+  /media/** rwk,
+  /backup/ r,
+  /backup/** r,
+  /addon_configs/ r,
+  /addon_configs/** rwk,
+  /config/ r,
+  /config/** rwk,
+
+  # Claude Code and user home
+  /root/ r,
+  /root/** rwk,
+  /tmp/** rwk,
+
+  # Node.js modules
+  /usr/lib/node_modules/** ixmr,
 }

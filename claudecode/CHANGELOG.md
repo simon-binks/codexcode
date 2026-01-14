@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.15] - 2026-01-14
+
+### Fixed
+- Refined AppArmor profile with focused permissions for HA config access
+- Added dac_read_search capability for directory listing
+- Full access to /homeassistant, /share, /media, /config directories
+- Read-only access to system files, SSL, backups
+
 ## [1.2.14] - 2026-01-14
 
 ### Fixed
