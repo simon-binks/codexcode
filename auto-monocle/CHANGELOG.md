@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-01-14
+
+### Added
+- Multi-method auto-discovery for RTSP URLs:
+  1. go2rtc streams (HA built-in or standalone)
+  2. UniFi Protect integration (query config entries + device registry)
+  3. Camera entity attributes (stream_source, rtsp_url, etc.)
+- Query HA config entries API for UniFi Protect NVR IP
+- Query HA device registry for camera IDs
+- Construct RTSP URLs from NVR IP + camera IDs
+
 ## [0.1.5] - 2026-01-14
 
 ### Fixed

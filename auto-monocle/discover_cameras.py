@@ -1,137 +1,293 @@
 #!/usr/bin/env python3
 """
 Auto-discover cameras from Home Assistant and generate Monocle configuration.
+Supports multiple discovery methods:
+1. go2rtc streams (HA built-in or standalone)
+2. UniFi Protect integration (construct RTSP URLs)
+3. Generic camera stream_source attributes
 """
 
 import json
 import os
 import sys
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 HA_URL = "http://supervisor/core"
 
-def get_ha_states() -> List[Dict]:
-    """Get all entity states from Home Assistant."""
+def api_get(endpoint: str, timeout: int = 10) -> Optional[Dict]:
+    """Make authenticated GET request to HA API."""
     headers = {
         "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
         "Content-Type": "application/json"
     }
     try:
-        response = requests.get(f"{HA_URL}/api/states", headers=headers, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        print(f"[ERROR] Failed to get HA states: {e}", file=sys.stderr)
-        return []
-
-def get_camera_stream_url(entity_id: str) -> Optional[str]:
-    """Get the RTSP stream URL for a camera entity."""
-    headers = {
-        "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    # Try to get stream source from camera attributes or via API
-    try:
-        # First check if entity has stream_source attribute
-        response = requests.get(f"{HA_URL}/api/states/{entity_id}", headers=headers, timeout=10)
+        response = requests.get(f"{HA_URL}{endpoint}", headers=headers, timeout=timeout)
         if response.status_code == 200:
-            state = response.json()
-            attrs = state.get("attributes", {})
-
-            # Check common attribute names for stream URL
-            for attr in ["stream_source", "rtsp_url", "video_url", "stream_url"]:
-                if attr in attrs and attrs[attr]:
-                    return attrs[attr]
-
-            # For UniFi Protect, construct RTSP URL from attributes
-            if "camera_id" in attrs or "unifi" in entity_id.lower():
-                # UniFi cameras typically have RTSP at: rtsp://ip:7447/camera_id
-                pass
-
+            return response.json()
     except Exception as e:
-        print(f"[WARN] Could not get stream URL for {entity_id}: {e}", file=sys.stderr)
+        print(f"[DEBUG] API error {endpoint}: {e}")
+    return None
+
+
+# =============================================================================
+# Method 1: go2rtc streams
+# =============================================================================
+
+def get_go2rtc_streams() -> Dict[str, str]:
+    """Try to get streams from go2rtc (HA built-in or standalone)."""
+    streams = {}
+
+    # Try various go2rtc endpoints
+    endpoints = [
+        "http://supervisor/core/api/go2rtc/streams",  # HA built-in go2rtc
+        "http://localhost:1984/api/streams",           # Standalone go2rtc
+        "http://localhost:11984/api/streams",          # HA go2rtc alternate port
+        "http://homeassistant:1984/api/streams",       # Docker network
+    ]
+
+    for url in endpoints:
+        try:
+            headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"} if "supervisor" in url else {}
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                print(f"[INFO] Found go2rtc at {url}")
+                # go2rtc returns {stream_name: {producers: [{url: "rtsp://..."}]}}
+                for name, info in data.items():
+                    if isinstance(info, dict):
+                        producers = info.get("producers", [])
+                        for producer in producers:
+                            if isinstance(producer, dict) and "url" in producer:
+                                url = producer["url"]
+                                if "rtsp" in url.lower():
+                                    streams[name] = url
+                                    print(f"[INFO] go2rtc stream: {name} -> {url[:50]}...")
+                return streams
+        except:
+            pass
+
+    print("[INFO] go2rtc not found or no streams configured")
+    return streams
+
+
+# =============================================================================
+# Method 2: UniFi Protect integration
+# =============================================================================
+
+def get_unifi_protect_config() -> Optional[Tuple[str, int]]:
+    """Get UniFi Protect NVR IP from config entries."""
+    entries = api_get("/api/config/config_entries/entry")
+    if not entries:
+        return None
+
+    for entry in entries:
+        if entry.get("domain") == "unifiprotect":
+            data = entry.get("data", {})
+            host = data.get("host")
+            port = data.get("port", 7441)
+            if host:
+                print(f"[INFO] Found UniFi Protect NVR: {host}:{port}")
+                return (host, port)
 
     return None
 
-def discover_cameras(filters: List[str] = None) -> List[Dict]:
-    """Discover all camera entities from Home Assistant."""
-    states = get_ha_states()
-    cameras = []
+def get_unifi_camera_ids() -> Dict[str, str]:
+    """Get UniFi Protect camera IDs from device registry."""
+    camera_ids = {}
 
+    # Get device registry
+    devices = api_get("/api/config/device_registry")
+    if not devices:
+        return camera_ids
+
+    for device in devices:
+        # Check if it's a UniFi Protect device
+        identifiers = device.get("identifiers", [])
+        for identifier in identifiers:
+            if isinstance(identifier, list) and len(identifier) >= 2:
+                if identifier[0] == "unifiprotect":
+                    camera_id = identifier[1]
+                    name = device.get("name_by_user") or device.get("name", "")
+                    if name and camera_id:
+                        camera_ids[name] = camera_id
+                        print(f"[DEBUG] UniFi camera: {name} -> {camera_id}")
+
+    return camera_ids
+
+def get_unifi_rtsp_urls() -> Dict[str, str]:
+    """Construct RTSP URLs for UniFi Protect cameras."""
+    urls = {}
+
+    nvr_config = get_unifi_protect_config()
+    if not nvr_config:
+        print("[INFO] UniFi Protect integration not found")
+        return urls
+
+    host, port = nvr_config
+    camera_ids = get_unifi_camera_ids()
+
+    for name, camera_id in camera_ids.items():
+        # UniFi Protect RTSP URL format
+        # rtsps for secure (port 7441), rtsp for insecure (port 7447)
+        rtsp_url = f"rtsps://{host}:{port}/{camera_id}"
+        urls[name] = rtsp_url
+        print(f"[INFO] UniFi RTSP: {name} -> {rtsp_url}")
+
+    return urls
+
+
+# =============================================================================
+# Method 3: Camera entity attributes
+# =============================================================================
+
+def get_camera_entities() -> List[Dict]:
+    """Get all camera entities from HA."""
+    states = api_get("/api/states", timeout=30)
+    if not states:
+        return []
+
+    cameras = []
     for state in states:
         entity_id = state.get("entity_id", "")
-
-        # Only process camera entities
-        if not entity_id.startswith("camera."):
-            continue
-
-        # Apply filters if specified
-        if filters:
-            skip = True
-            for f in filters:
-                if f.lower() in entity_id.lower() or f.lower() in state.get("attributes", {}).get("friendly_name", "").lower():
-                    skip = False
-                    break
-            if skip:
-                continue
-
-        attrs = state.get("attributes", {})
-        friendly_name = attrs.get("friendly_name", entity_id.replace("camera.", "").replace("_", " ").title())
-
-        # Debug: print all attributes for first few cameras
-        if len(cameras) < 3:
-            print(f"[DEBUG] {entity_id} attributes: {list(attrs.keys())}")
-            # Look for any URL-like attributes
-            for key, value in attrs.items():
-                if isinstance(value, str) and ('rtsp' in value.lower() or 'stream' in value.lower() or '://' in value):
-                    print(f"[DEBUG]   {key}: {value}")
-
-        # Get stream URL
-        stream_url = get_camera_stream_url(entity_id)
-
-        camera_info = {
-            "entity_id": entity_id,
-            "name": friendly_name,
-            "stream_url": stream_url,
-            "brand": attrs.get("brand", "Unknown"),
-            "model": attrs.get("model", "Unknown"),
-            "supported_features": attrs.get("supported_features", 0)
-        }
-
-        cameras.append(camera_info)
-        print(f"[INFO] Discovered camera: {friendly_name} ({entity_id})")
-
+        if entity_id.startswith("camera."):
+            cameras.append(state)
     return cameras
 
+def get_stream_url_from_attributes(state: Dict) -> Optional[str]:
+    """Try to get RTSP URL from camera entity attributes."""
+    attrs = state.get("attributes", {})
+
+    # Check common attribute names
+    for attr in ["stream_source", "rtsp_url", "video_url", "stream_url", "rtsp_stream"]:
+        if attr in attrs and attrs[attr]:
+            url = attrs[attr]
+            if isinstance(url, str) and "://" in url:
+                return url
+
+    return None
+
+
+# =============================================================================
+# Main discovery logic
+# =============================================================================
+
+def discover_cameras(filters: List[str] = None) -> List[Dict]:
+    """
+    Discover cameras using multiple methods:
+    1. go2rtc streams
+    2. UniFi Protect integration
+    3. Camera entity attributes
+    """
+    discovered = {}  # name -> {entity_id, name, stream_url}
+
+    # Get all camera entities first
+    camera_entities = get_camera_entities()
+    print(f"[INFO] Found {len(camera_entities)} camera entities in HA")
+
+    # Build entity lookup by name
+    entity_lookup = {}  # name variations -> entity_id
+    for state in camera_entities:
+        entity_id = state.get("entity_id", "")
+        attrs = state.get("attributes", {})
+        friendly_name = attrs.get("friendly_name", "")
+
+        # Apply filters
+        if filters:
+            match = False
+            for f in filters:
+                if f.lower() in entity_id.lower() or f.lower() in friendly_name.lower():
+                    match = True
+                    break
+            if not match:
+                continue
+
+        # Store with various name keys for matching
+        entity_lookup[entity_id] = state
+        entity_lookup[friendly_name.lower()] = state
+        entity_lookup[entity_id.replace("camera.", "")] = state
+
+        # Initialize camera info
+        discovered[entity_id] = {
+            "entity_id": entity_id,
+            "name": friendly_name or entity_id.replace("camera.", "").replace("_", " ").title(),
+            "stream_url": None
+        }
+
+    # Method 1: Try go2rtc
+    print("[INFO] Checking go2rtc streams...")
+    go2rtc_streams = get_go2rtc_streams()
+    for stream_name, rtsp_url in go2rtc_streams.items():
+        # Try to match stream name to camera entity
+        for entity_id, camera in discovered.items():
+            if (stream_name.lower() in entity_id.lower() or
+                stream_name.lower() in camera["name"].lower() or
+                entity_id.replace("camera.", "") == stream_name):
+                camera["stream_url"] = rtsp_url
+                print(f"[INFO] Matched go2rtc stream '{stream_name}' to {entity_id}")
+                break
+
+    # Method 2: Try UniFi Protect
+    print("[INFO] Checking UniFi Protect integration...")
+    unifi_urls = get_unifi_rtsp_urls()
+    for name, rtsp_url in unifi_urls.items():
+        # Try to match UniFi camera to HA entity
+        for entity_id, camera in discovered.items():
+            if camera["stream_url"]:
+                continue  # Already has URL from go2rtc
+            if (name.lower() in camera["name"].lower() or
+                name.lower() in entity_id.lower()):
+                camera["stream_url"] = rtsp_url
+                print(f"[INFO] Matched UniFi camera '{name}' to {entity_id}")
+                break
+
+    # Method 3: Check entity attributes
+    print("[INFO] Checking camera entity attributes...")
+    for entity_id, camera in discovered.items():
+        if camera["stream_url"]:
+            continue  # Already has URL
+
+        state = entity_lookup.get(entity_id)
+        if state:
+            url = get_stream_url_from_attributes(state)
+            if url:
+                camera["stream_url"] = url
+                print(f"[INFO] Found stream_source for {entity_id}")
+
+    # Summary
+    with_urls = sum(1 for c in discovered.values() if c["stream_url"])
+    print(f"[INFO] Discovery complete: {len(discovered)} cameras, {with_urls} with RTSP URLs")
+
+    return list(discovered.values())
+
+
 def generate_monocle_config(cameras: List[Dict]) -> Dict:
-    """Generate Monocle Gateway configuration (cameras only, token is separate file)."""
-    config = {
-        "cameras": []
-    }
+    """Generate Monocle Gateway configuration."""
+    config = {"cameras": []}
 
     for camera in cameras:
         if camera.get("stream_url"):
             cam_config = {
                 "name": camera["name"],
                 "url": camera["stream_url"],
-                "tags": ["@proxy"]  # Use Monocle Gateway proxy
+                "tags": ["@proxy"]
             }
             config["cameras"].append(cam_config)
-            print(f"[INFO] Added camera to Monocle: {camera['name']}")
+            print(f"[INFO] Added to Monocle: {camera['name']}")
         else:
-            print(f"[WARN] Skipping {camera['name']} - no stream URL available")
+            print(f"[WARN] Skipping {camera['name']} - no RTSP URL")
 
     return config
 
+
 def write_monocle_token(token: str, path: str = "/etc/monocle/monocle.token"):
-    """Write Monocle API token to file (required by gateway)."""
+    """Write Monocle API token to file."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         f.write(token)
-    print(f"[INFO] Wrote Monocle token file")
+    print("[INFO] Wrote Monocle token file")
+
 
 def write_monocle_config(config: Dict, path: str = "/etc/monocle/monocle.json"):
     """Write Monocle configuration to file."""
@@ -140,22 +296,21 @@ def write_monocle_config(config: Dict, path: str = "/etc/monocle/monocle.json"):
         json.dump(config, f, indent=2)
     print(f"[INFO] Wrote Monocle config with {len(config.get('cameras', []))} cameras")
 
+
 def main():
     """Main entry point."""
-    # Read add-on options
     options_path = "/data/options.json"
+    options = {}
     if os.path.exists(options_path):
         with open(options_path) as f:
             options = json.load(f)
-    else:
-        options = {}
 
     monocle_token = options.get("monocle_token", "")
     auto_discover = options.get("auto_discover", True)
     camera_filters = options.get("camera_filters", [])
 
     if not monocle_token:
-        print("[ERROR] Monocle token not configured. Get one from https://monoclecam.com", file=sys.stderr)
+        print("[ERROR] Monocle token not configured", file=sys.stderr)
         sys.exit(1)
 
     if not SUPERVISOR_TOKEN:
@@ -163,20 +318,18 @@ def main():
         sys.exit(1)
 
     print("[INFO] Starting camera discovery...")
-
-    # Always write the token file (required by gateway)
     write_monocle_token(monocle_token)
 
     if auto_discover:
         cameras = discover_cameras(camera_filters if camera_filters else None)
-        print(f"[INFO] Discovered {len(cameras)} cameras")
-
         config = generate_monocle_config(cameras)
         write_monocle_config(config)
     else:
         print("[INFO] Auto-discovery disabled")
+        write_monocle_config({"cameras": []})
 
     print("[INFO] Camera discovery complete")
+
 
 if __name__ == "__main__":
     main()
