@@ -44,6 +44,7 @@ exec "$CHROMIUM_PATH" \
     --disable-software-rasterizer \
     --remote-debugging-port="${CDP_PORT}" \
     --remote-debugging-address=0.0.0.0 \
+    --remote-debugging-bind-to-all-interfaces \
     --user-data-dir="$USER_DATA_DIR" \
     --disable-background-networking \
     --disable-default-apps \

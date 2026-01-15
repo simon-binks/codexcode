@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - 2026-01-15
+
+### Fixed
+- Added `--remote-debugging-bind-to-all-interfaces` flag for newer Chrome versions
+- Fixes Chrome ignoring `--remote-debugging-address=0.0.0.0` and binding only to localhost
+
 ## [0.1.4] - 2026-01-15
 
 ### Changed
