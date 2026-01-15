@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-01-15
+
+### Fixed
+- Use socat TCP forwarder to expose CDP port externally
+- Chrome ignores all attempts to bind to 0.0.0.0, so we forward port 9222 to Chrome's localhost:9223
+- Should definitively fix connection refused errors from other containers
+
 ## [0.1.5] - 2026-01-15
 
 ### Fixed
