@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.47] - 2026-01-15
+
+### Fixed
+- Created `/usr/local/bin/chromium-wrapper` script that always passes `--no-sandbox`
+- Playwright MCP config now points to wrapper script
+- Should resolve EACCES and sandbox errors when running as root
+
 ## [1.2.46] - 2026-01-15
 
 ### Fixed

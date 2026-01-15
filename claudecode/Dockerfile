@@ -48,9 +48,14 @@ RUN apk add --no-cache \
     font-noto-emoji \
     && rm -rf /var/cache/apk/*
 
-# Create Playwright MCP config to use system Chromium with no-sandbox (required for root)
+# Create Chromium wrapper script with --no-sandbox for running as root in containers
+RUN echo '#!/bin/sh' > /usr/local/bin/chromium-wrapper && \
+    echo 'exec /usr/bin/chromium-browser --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage "$@"' >> /usr/local/bin/chromium-wrapper && \
+    chmod +x /usr/local/bin/chromium-wrapper
+
+# Create Playwright MCP config to use wrapper script
 RUN mkdir -p /etc/playwright && \
-    echo '{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/usr/bin/chromium-browser","args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}}}' > /etc/playwright/mcp-config.json
+    echo '{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/usr/local/bin/chromium-wrapper"}}}' > /etc/playwright/mcp-config.json
 
 # Install ttyd static binary (avoids libwebsockets issues)
 ARG BUILD_ARCH
