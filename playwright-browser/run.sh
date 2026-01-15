@@ -30,6 +30,10 @@ echo "[INFO] Using Chromium: ${CHROMIUM_PATH}"
 USER_DATA_DIR="/tmp/chromium-data"
 mkdir -p "$USER_DATA_DIR"
 
+# Get container hostname for response rewriting
+CONTAINER_HOSTNAME=$(hostname)
+echo "[INFO] Container hostname: ${CONTAINER_HOSTNAME}"
+
 # Create nginx config to proxy CDP with Host header rewrite
 cat > /tmp/nginx.conf << EOF
 worker_processes 1;
@@ -58,6 +62,13 @@ http {
 
             # Rewrite Host header to localhost (Chrome security requirement)
             proxy_set_header Host localhost;
+
+            # Rewrite response body: replace localhost URLs with container hostname
+            # This fixes Chrome returning ws://localhost/... which doesn't work across containers
+            sub_filter_types application/json text/plain;
+            sub_filter_once off;
+            sub_filter 'ws://localhost/' 'ws://${CONTAINER_HOSTNAME}:${CDP_PORT}/';
+            sub_filter 'ws://127.0.0.1:${INTERNAL_PORT}/' 'ws://${CONTAINER_HOSTNAME}:${CDP_PORT}/';
 
             # WebSocket support
             proxy_set_header Upgrade \$http_upgrade;

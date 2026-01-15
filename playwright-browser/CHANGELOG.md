@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.10] - 2026-01-15
+
+### Fixed
+- Use nginx `sub_filter` to rewrite WebSocket URLs in Chrome's responses
+- Chrome returns `ws://localhost/...` which doesn't work across containers
+- Now rewrites to `ws://{container-hostname}:{port}/...` for proper cross-container access
+
 ## [0.1.9] - 2026-01-15
 
 ### Fixed
