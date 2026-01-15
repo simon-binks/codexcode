@@ -48,9 +48,9 @@ RUN apk add --no-cache \
     font-noto-emoji \
     && rm -rf /var/cache/apk/*
 
-# Set Playwright to use system Chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# Create Playwright MCP config to use system Chromium with no-sandbox (required for root)
+RUN mkdir -p /etc/playwright && \
+    echo '{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/usr/bin/chromium-browser","args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}}}' > /etc/playwright/mcp-config.json
 
 # Install ttyd static binary (avoids libwebsockets issues)
 ARG BUILD_ARCH
@@ -221,7 +221,7 @@ CMD ["/bin/bash", "-c", "\
     echo '[INFO] MCP disabled'; \
   fi && \
   if [ \"$ENABLE_PLAYWRIGHT\" = \"true\" ]; then \
-    claude mcp add-json playwright '{\"command\":\"npx\",\"args\":[\"-y\",\"@playwright/mcp\",\"--headless\",\"--browser\",\"chromium\"],\"env\":{\"PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH\":\"/usr/bin/chromium-browser\"}}' -s user && \
+    claude mcp add-json playwright '{\"command\":\"npx\",\"args\":[\"-y\",\"@playwright/mcp\",\"--headless\",\"--config\",\"/etc/playwright/mcp-config.json\"]}' -s user && \
     echo '[INFO] Playwright MCP enabled (headless Chromium)'; \
   else \
     echo '[INFO] Playwright MCP disabled'; \

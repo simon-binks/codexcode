@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.46] - 2026-01-15
+
+### Fixed
+- Playwright MCP now uses config file with system Chromium
+- Added `--no-sandbox` and `--disable-dev-shm-usage` flags for container compatibility
+- Uses `/usr/bin/chromium-browser` instead of downloaded Chromium
+
 ## [1.2.45] - 2026-01-15
 
 ### Fixed
