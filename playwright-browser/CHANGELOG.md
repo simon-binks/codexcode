@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2026-01-15
+
+### Changed
+- Added more Chromium flags to reduce noise from dbus/GCM errors
+- Disabled notifications, permissions API, background mode, and other unused features
+- Added info message explaining dbus errors are harmless in containerized environments
+
 ## [0.1.2] - 2026-01-15
 
 ### Fixed

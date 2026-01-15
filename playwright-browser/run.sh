@@ -30,7 +30,7 @@ USER_DATA_DIR="/tmp/chromium-data"
 mkdir -p "$USER_DATA_DIR"
 
 echo "[INFO] Starting Chromium with remote debugging on port ${CDP_PORT}..."
-echo "[INFO] CDP endpoint: ws://local-playwright-browser:${CDP_PORT}"
+echo "[INFO] CDP endpoint: ws://playwright-browser:${CDP_PORT}"
 echo "[INFO] (dbus errors below are harmless - no system bus in container)"
 
 # Start Chromium in headless mode with remote debugging
@@ -62,4 +62,13 @@ exec "$CHROMIUM_PATH" \
     --disable-print-preview \
     --disable-speech-api \
     --no-pings \
-    --remote-allow-origins=*
+    --remote-allow-origins=* \
+    --disable-notifications \
+    --disable-permissions-api \
+    --disable-background-mode \
+    --disable-client-side-phishing-detection \
+    --disable-hang-monitor \
+    --disable-popup-blocking \
+    --disable-prompt-on-repost \
+    --password-store=basic \
+    --use-mock-keychain
