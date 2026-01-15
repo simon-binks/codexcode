@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-01-15
+
+### Fixed
+- Use nginx reverse proxy instead of socat
+- nginx rewrites Host header to 'localhost' (Chrome v66+ security requirement)
+- Fixes "Host header is specified and is not an IP address or localhost" error
+- Full WebSocket support with proper upgrade headers
+
 ## [0.1.6] - 2026-01-15
 
 ### Fixed

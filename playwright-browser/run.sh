@@ -30,8 +30,49 @@ echo "[INFO] Using Chromium: ${CHROMIUM_PATH}"
 USER_DATA_DIR="/tmp/chromium-data"
 mkdir -p "$USER_DATA_DIR"
 
+# Create nginx config to proxy CDP with Host header rewrite
+cat > /tmp/nginx.conf << EOF
+worker_processes 1;
+error_log /dev/stderr warn;
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    access_log /dev/stdout;
+
+    # WebSocket support
+    map \$http_upgrade \$connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+
+    server {
+        listen ${CDP_PORT};
+
+        location / {
+            proxy_pass http://127.0.0.1:${INTERNAL_PORT};
+            proxy_http_version 1.1;
+
+            # Rewrite Host header to localhost (Chrome security requirement)
+            proxy_set_header Host localhost;
+
+            # WebSocket support
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection \$connection_upgrade;
+
+            # Timeouts for long-running connections
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+        }
+    }
+}
+EOF
+
 echo "[INFO] Starting Chromium on internal port ${INTERNAL_PORT}..."
-echo "[INFO] CDP endpoint: ws://playwright-browser:${CDP_PORT}"
+echo "[INFO] CDP endpoint: http://playwright-browser:${CDP_PORT}"
 echo "[INFO] (dbus errors below are harmless - no system bus in container)"
 
 # Start Chromium in background on internal port
@@ -84,16 +125,17 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Start socat to forward external connections to Chrome
-echo "[INFO] Starting TCP forwarder on 0.0.0.0:${CDP_PORT} -> 127.0.0.1:${INTERNAL_PORT}"
-socat TCP-LISTEN:${CDP_PORT},bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:${INTERNAL_PORT} &
-SOCAT_PID=$!
+# Start nginx reverse proxy
+echo "[INFO] Starting nginx reverse proxy on 0.0.0.0:${CDP_PORT} -> 127.0.0.1:${INTERNAL_PORT}"
+echo "[INFO] (nginx rewrites Host header to 'localhost' for Chrome CDP security)"
+nginx -c /tmp/nginx.conf &
+NGINX_PID=$!
 
-echo "[INFO] CDP endpoint ready at ws://playwright-browser:${CDP_PORT}"
+echo "[INFO] CDP endpoint ready at http://playwright-browser:${CDP_PORT}"
 
 # Wait for either process to exit
-wait -n $CHROME_PID $SOCAT_PID
+wait -n $CHROME_PID $NGINX_PID
 
 # If we get here, one of them died - kill the other and exit
-kill $CHROME_PID $SOCAT_PID 2>/dev/null || true
+kill $CHROME_PID $NGINX_PID 2>/dev/null || true
 exit 1

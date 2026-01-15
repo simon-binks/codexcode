@@ -14,7 +14,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 # jq is already available in the Playwright image (Ubuntu-based)
 # Just ensure it's installed
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends jq curl socat && \
+    apt-get install -y --no-install-recommends jq curl nginx && \
     rm -rf /var/lib/apt/lists/*
 
 # Create data directory
