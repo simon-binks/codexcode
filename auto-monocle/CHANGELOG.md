@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-01-14
+
+### Fixed
+- Remove --strip-components=1 from tar (tarball has no subdirectory)
+
 ## [0.1.1] - 2026-01-14
 
 ### Fixed
