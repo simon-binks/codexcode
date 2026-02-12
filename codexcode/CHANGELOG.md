@@ -2,6 +2,12 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.3.4] - 2026-02-12
+
+### Fixed
+- Allowed execute permission for add-on managed MCP launcher scripts under `/homeassistant/.codexcode/mcp/**`.
+- Fixes `Permission denied (os error 13)` when starting the Home Assistant MCP client.
+
 ## [1.3.3] - 2026-02-12
 
 ### Fixed

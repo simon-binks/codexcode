@@ -45,6 +45,7 @@ profile codexcode flags=(attach_disconnected,mediate_deleted) {
   # Home Assistant config - main working directory
   /homeassistant/ r,
   /homeassistant/** rwk,
+  /homeassistant/.codexcode/mcp/** ixr,
 
   # Other mapped HA directories
   /ssl/ r,
