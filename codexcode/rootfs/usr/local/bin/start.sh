@@ -99,14 +99,46 @@ if [ "${AUTO_UPDATE_CODEX}" = "true" ]; then
 fi
 
 if [ "${ENABLE_MCP}" = "true" ]; then
-  echo "[INFO] MCP enabled; configure MCP servers in your CLI/client settings"
+  if command -v codex >/dev/null 2>&1 && codex mcp list >/dev/null 2>&1; then
+    MCP_HA_CWD="${PERSIST_DIR}/mcp/homeassistant"
+    mkdir -p "${MCP_HA_CWD}"
+    cat > "${MCP_HA_CWD}/.env" <<EOF
+HA_URL=${HA_URL}
+HA_TOKEN=${HA_TOKEN}
+EOF
+    chmod 600 "${MCP_HA_CWD}/.env"
+
+    codex mcp remove homeassistant >/dev/null 2>&1 || true
+    if codex mcp add homeassistant --cwd "${MCP_HA_CWD}" -- hass-mcp >/dev/null 2>&1; then
+      echo "[INFO] Codex MCP 'homeassistant' configured"
+    else
+      echo "[WARN] Failed to configure Codex MCP 'homeassistant'"
+    fi
+  else
+    echo "[WARN] Codex CLI MCP commands unavailable; skipping MCP bootstrap"
+  fi
 else
+  if command -v codex >/dev/null 2>&1; then
+    codex mcp remove homeassistant >/dev/null 2>&1 || true
+  fi
   echo "[INFO] MCP disabled"
 fi
 
 if [ "${ENABLE_PLAYWRIGHT}" = "true" ]; then
-  echo "[INFO] Playwright MCP endpoint hint: http://${PLAYWRIGHT_HOST}:9222"
+  if command -v codex >/dev/null 2>&1 && codex mcp list >/dev/null 2>&1; then
+    codex mcp remove playwright >/dev/null 2>&1 || true
+    if codex mcp add playwright -- npx -y @playwright/mcp --cdp-endpoint "http://${PLAYWRIGHT_HOST}:9222" >/dev/null 2>&1; then
+      echo "[INFO] Codex MCP 'playwright' configured (CDP: http://${PLAYWRIGHT_HOST}:9222)"
+    else
+      echo "[WARN] Failed to configure Codex MCP 'playwright'"
+    fi
+  else
+    echo "[INFO] Playwright MCP endpoint hint: http://${PLAYWRIGHT_HOST}:9222"
+  fi
 else
+  if command -v codex >/dev/null 2>&1; then
+    codex mcp remove playwright >/dev/null 2>&1 || true
+  fi
   echo "[INFO] Playwright MCP disabled"
 fi
 

@@ -2,6 +2,13 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.3.1] - 2026-02-12
+
+### Fixed
+- Restored automatic MCP bootstrap at startup for Codex CLI.
+- Home Assistant MCP now uses an isolated add-on managed `.env` under `/homeassistant/.codexcode/mcp/homeassistant`.
+- Optional Playwright MCP registration now bootstraps automatically when enabled.
+
 ## [1.3.0] - 2026-02-12
 
 ### Changed
@@ -20,4 +27,3 @@ All notable changes to this add-on are documented here.
 ### Removed
 - Removed Claude CLI installation from the image build.
 - Removed Claude-specific startup command invocations and aliases.
-
