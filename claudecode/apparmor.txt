@@ -1,6 +1,6 @@
 #include <tunables/global>
 
-profile claudecode flags=(attach_disconnected,mediate_deleted) {
+profile codexcode flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
   # Capabilities needed for terminal and networking
@@ -14,7 +14,7 @@ profile claudecode flags=(attach_disconnected,mediate_deleted) {
   capability dac_read_search,
   capability sys_tty_config,
 
-  # Network access for Claude API and hass-mcp
+  # Network access for OpenAI/Codex API and hass-mcp
   network,
 
   # PTY/TTY access for terminal
@@ -60,7 +60,7 @@ profile claudecode flags=(attach_disconnected,mediate_deleted) {
   /config/ r,
   /config/** rwk,
 
-  # Claude Code and user home
+  # Codex tooling and user home
   /root/ r,
   /root/** rwk,
   /tmp/** rwk,
