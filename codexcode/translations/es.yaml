@@ -3,13 +3,13 @@ configuration:
     name: Habilitar MCP de Home Assistant
     description: >-
       Habilita el servidor MCP de Home Assistant para interacción directa con
-      entidades y servicios desde Claude Code. Permite que Claude consulte
+      entidades y servicios desde clientes compatibles con Codex. Permite que el asistente consulte
       estados, llame servicios e interactúe con tu hogar inteligente.
   enable_playwright_mcp:
     name: Habilitar MCP Playwright
     description: >-
       Habilita el servidor MCP Playwright para automatización del navegador. Requiere
-      el add-on "Playwright Browser" instalado y ejecutándose. Permite que Claude
+      el add-on "Playwright Browser" instalado y ejecutándose. Permite que el asistente
       navegue páginas web, complete formularios, haga clic en elementos y tome
       capturas de pantalla.
   playwright_cdp_host:
@@ -31,7 +31,7 @@ configuration:
   working_directory:
     name: Directorio de Trabajo
     description: >-
-      El directorio predeterminado cuando Claude Code inicia.
+      El directorio predeterminado cuando inicia la shell del add-on.
       Usa /homeassistant para acceso directo a los archivos de configuración de HA.
   session_persistence:
     name: Persistencia de Sesión
@@ -39,11 +39,11 @@ configuration:
       Habilita persistencia de sesión via tmux. Cuando está habilitado, tu sesión
       del terminal sobrevive a actualizaciones del navegador y desconexiones.
       Recomendado para tareas de larga duración.
-  auto_update_claude:
-    name: Actualización Automática de Claude Code
+  auto_update_codex:
+    name: Actualización Automática de Codex
     description: >-
-      Verifica e instala automáticamente actualizaciones de Claude Code al iniciar el add-on.
-      Mantiene Claude Code actualizado sin necesidad de actualizar la versión del add-on.
+      Verifica e instala automáticamente actualizaciones de @openai/codex al iniciar el add-on
+      cuando el paquete está instalado globalmente en el contenedor.
 
 network:
   7681/tcp: Terminal Web (ttyd)
