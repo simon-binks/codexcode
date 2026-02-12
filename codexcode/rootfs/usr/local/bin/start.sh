@@ -107,9 +107,15 @@ HA_URL=${HA_URL}
 HA_TOKEN=${HA_TOKEN}
 EOF
     chmod 600 "${MCP_HA_CWD}/.env"
+    cat > "${MCP_HA_CWD}/hass-mcp-launcher.sh" <<EOF
+#!/usr/bin/env bash
+cd "${MCP_HA_CWD}"
+exec hass-mcp
+EOF
+    chmod 700 "${MCP_HA_CWD}/hass-mcp-launcher.sh"
 
     codex mcp remove homeassistant >/dev/null 2>&1 || true
-    if codex mcp add homeassistant --cwd "${MCP_HA_CWD}" -- hass-mcp >/dev/null 2>&1; then
+    if codex mcp add homeassistant -- "${MCP_HA_CWD}/hass-mcp-launcher.sh" >/dev/null 2>&1; then
       echo "[INFO] Codex MCP 'homeassistant' configured"
     else
       echo "[WARN] Failed to configure Codex MCP 'homeassistant'"

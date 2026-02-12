@@ -2,6 +2,13 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.3.3] - 2026-02-12
+
+### Fixed
+- Corrected Codex MCP registration for Home Assistant.
+- Removed incompatible `--cwd` usage from `codex mcp add`.
+- Added startup launcher script so `hass-mcp` runs from the add-on managed MCP directory with the correct `.env`.
+
 ## [1.3.1] - 2026-02-12
 
 ### Fixed
