@@ -2,6 +2,23 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.3.8] - 2026-02-14
+
+### Changed
+- Added `codex-ha` alias for Home Assistant-tuned Codex sessions.
+- Startup now generates `/homeassistant/.codexcode/HA_TUNING.md` with Codex-specific MCP usage rules.
+- Startup now generates `/homeassistant/.codexcode/SESSION_PROMPT.txt` used by `codex-ha` for faster, targeted HA workflows.
+- Added README guidance for reducing latency and improving HA task reliability in Codex.
+
+## [1.3.7] - 2026-02-14
+
+### Fixed
+- Added device-auth login path for Codex to avoid ingress `localhost` callback failures.
+
+### Changed
+- Added `codex-login` shell alias (`codex login --device-auth`) for first-time sign-in.
+- Documented callback-login troubleshooting and device auth workflow in README and startup guidance.
+
 ## [1.3.6] - 2026-02-12
 
 ### Changed

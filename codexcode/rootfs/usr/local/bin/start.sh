@@ -33,6 +33,13 @@ When users mention `/config/...`, translate to `/homeassistant/...`.
 Use `hass-mcp` and your client MCP configuration for Home Assistant integration.
 For better performance, prefer domain-focused queries over full entity dumps.
 
+## Authentication
+
+If browser login callback fails with `localhost` errors inside ingress/container networking, use:
+`codex-login`
+
+This runs `codex login --device-auth`, which avoids local callback ports.
+
 ## Action Reliability
 
 When executing state-changing actions (turn on/off, set temperature, etc):
@@ -57,6 +64,31 @@ ha core logs 2>&1 | grep -iE "(error|exception)"
 # Alternative: read log file directly
 tail -100 /homeassistant/home-assistant.log
 ```
+EOF
+
+cat > "${PERSIST_DIR}/HA_TUNING.md" <<'EOF'
+# Home Assistant Tuning for Codex
+
+Use these rules to improve speed and reliability:
+
+1. Avoid full entity dumps (`hass://entities`) unless explicitly requested.
+2. Prefer targeted queries:
+   - domain summary and search first
+   - specific entity readbacks for verification
+3. For state-changing actions:
+   - perform one action call
+   - immediately read back entity state
+   - report observed state as source of truth
+4. If a tool returns validation/type errors after an action, still verify entity state before reporting failure.
+5. Use domain-scoped requests (`light`, `switch`, `climate`) to keep responses small and fast.
+EOF
+
+cat > "${PERSIST_DIR}/SESSION_PROMPT.txt" <<'EOF'
+Read `/homeassistant/.codexcode/CODEX.md` and `/homeassistant/.codexcode/HA_TUNING.md` first.
+Then use Home Assistant MCP with these priorities:
+- Avoid full entity dumps unless explicitly asked.
+- Prefer targeted domain/entity queries.
+- For actions, always verify final entity state and report success/failure from readback state.
 EOF
 
 if [ ! -L /root/.codex ]; then

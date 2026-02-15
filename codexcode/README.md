@@ -18,6 +18,7 @@ This scaffold intentionally avoids vendor-specific CLI startup commands so you c
 1. Install the add-on and start it.
 2. Open the add-on Web UI from the Home Assistant sidebar.
 3. Use the terminal to run your preferred coding assistant CLI.
+4. For Home Assistant-optimized Codex sessions, run `codex-ha`.
 
 ## Features
 
@@ -78,6 +79,15 @@ When `session_persistence` is enabled, the add-on uses tmux and attaches to sess
 2. Restart the add-on.
 3. Reconnect to the ingress terminal.
 
+### Browser login callback fails (`localhost` error)
+
+Ingress/container networking can break browser callback login (`localhost:<port>/auth/callback`).
+
+Use device auth in the add-on terminal instead:
+1. Run `codex-login` (alias for `codex login --device-auth`).
+2. Open the shown URL and enter the code.
+3. Return to terminal to complete sign-in.
+
 ### MCP integration is unavailable
 
 1. Ensure `enable_mcp` is `true`.
@@ -92,6 +102,15 @@ Workaround:
 1. Ask Codex to verify state after each action.
 2. Use prompts like: `Turn on switch.sad_lamp, then read back its state and confirm success only if it is on.`
 3. Prefer domain-focused queries (`light`, `switch`, `climate`) for faster responses.
+
+### Codex feels slower than Claude in HA tasks
+
+This usually happens when Codex starts with broad entity discovery and large MCP payloads.
+
+Use:
+1. `codex-ha` for a tuned startup prompt.
+2. Domain-scoped requests first (example: `list light entities in kitchen`).
+3. Verification-style action prompts (write, then read state).
 
 ## Support
 
