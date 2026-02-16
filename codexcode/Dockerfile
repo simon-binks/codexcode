@@ -114,10 +114,13 @@ export TERM=xterm-256color
 export LANG=C.UTF-8
 PS1='\[\033[1;36m\]codex-code\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]\$ '
 
+# Load session prompt once at shell startup
+_CODEX_SESSION_PROMPT="$(cat /homeassistant/.codexcode/SESSION_PROMPT.txt 2>/dev/null || echo 'Use Home Assistant MCP tools efficiently: avoid full entity dumps, prefer targeted domain queries, and verify state after actions.')"
+
 # Aliases
 alias ll='ls -la'
 alias codex-login='codex login --device-auth'
-alias codex-ha='codex "$(cat /homeassistant/.codexcode/SESSION_PROMPT.txt 2>/dev/null || echo \"Use Home Assistant MCP tools efficiently: avoid full entity dumps, prefer targeted domain queries, and verify state after actions.\")"'
+alias codex-ha='codex "$_CODEX_SESSION_PROMPT"'
 alias ha-config='cd /homeassistant'
 alias ha-logs='cat /homeassistant/home-assistant.log 2>/dev/null || echo "Log not found"'
 EOF

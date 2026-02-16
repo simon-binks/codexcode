@@ -2,6 +2,20 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.4.0] - 2026-02-16
+
+### Changed
+- Write MCP config directly to `config.toml` instead of spawning `codex mcp add/remove` CLI commands — eliminates multiple Node.js process spawns during startup for faster boot.
+- Read all add-on options in a single `jq` call instead of seven separate invocations.
+- Load session prompt once at shell startup instead of subshelling on every `codex-ha` alias invocation.
+- Removed redundant `npm list -g` check before auto-update — `npm update` already handles missing packages gracefully.
+- Removed unused symlinks (`/root/.codex.json`, `/root/.config/codex`) that don't match actual Codex CLI config paths.
+
+### Fixed
+- MCP launcher now reads `SUPERVISOR_TOKEN` at runtime instead of baking in the token at startup — fixes stale-token HTTP 500 errors after addon restarts.
+- `SUPERVISOR_TOKEN` is passed via `[mcp_servers.homeassistant.env]` in config.toml so it is available to child processes.
+- MCP config regeneration now preserves existing user customisations (model, approval_policy, etc.) in `config.toml`.
+
 ## [1.3.8] - 2026-02-14
 
 ### Changed

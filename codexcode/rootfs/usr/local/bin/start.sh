@@ -5,9 +5,13 @@ export HA_TOKEN="${SUPERVISOR_TOKEN:-}"
 export HA_URL="http://supervisor/core"
 
 PERSIST_DIR="/homeassistant/.codexcode"
-mkdir -p "${PERSIST_DIR}/config" /root/.config
+CONFIG_TOML="${PERSIST_DIR}/config.toml"
+mkdir -p "${PERSIST_DIR}" /root/.config
 
-cat > "${PERSIST_DIR}/CODEX.md" <<'EOF'
+# ---------------------------------------------------------------------------
+# Generate guidance docs
+# ---------------------------------------------------------------------------
+cat > "${PERSIST_DIR}/CODEX.md" <<'DOCEOF'
 # Codex Code - Home Assistant Add-on
 
 ## Path Mapping
@@ -64,9 +68,9 @@ ha core logs 2>&1 | grep -iE "(error|exception)"
 # Alternative: read log file directly
 tail -100 /homeassistant/home-assistant.log
 ```
-EOF
+DOCEOF
 
-cat > "${PERSIST_DIR}/HA_TUNING.md" <<'EOF'
+cat > "${PERSIST_DIR}/HA_TUNING.md" <<'DOCEOF'
 # Home Assistant Tuning for Codex
 
 Use these rules to improve speed and reliability:
@@ -81,40 +85,42 @@ Use these rules to improve speed and reliability:
    - report observed state as source of truth
 4. If a tool returns validation/type errors after an action, still verify entity state before reporting failure.
 5. Use domain-scoped requests (`light`, `switch`, `climate`) to keep responses small and fast.
-EOF
+DOCEOF
 
-cat > "${PERSIST_DIR}/SESSION_PROMPT.txt" <<'EOF'
+cat > "${PERSIST_DIR}/SESSION_PROMPT.txt" <<'DOCEOF'
 Read `/homeassistant/.codexcode/CODEX.md` and `/homeassistant/.codexcode/HA_TUNING.md` first.
 Then use Home Assistant MCP with these priorities:
 - Avoid full entity dumps unless explicitly asked.
 - Prefer targeted domain/entity queries.
 - For actions, always verify final entity state and report success/failure from readback state.
-EOF
+DOCEOF
 
+# ---------------------------------------------------------------------------
+# Symlink Codex CLI state to persistent storage
+#   ~/.codex  →  config.toml, auth.json, log/, skills/
+# ---------------------------------------------------------------------------
 if [ ! -L /root/.codex ]; then
   rm -rf /root/.codex
   ln -s "${PERSIST_DIR}" /root/.codex
 fi
 
-if [ ! -L /root/.config/codex ]; then
-  rm -rf /root/.config/codex
-  ln -s "${PERSIST_DIR}/config" /root/.config/codex
-fi
-
-if [ ! -L /root/.codex.json ]; then
-  touch "${PERSIST_DIR}/.codex.json"
-  rm -f /root/.codex.json
-  ln -s "${PERSIST_DIR}/.codex.json" /root/.codex.json
-fi
-
+# ---------------------------------------------------------------------------
+# Read add-on options (single jq call instead of six)
+# ---------------------------------------------------------------------------
 OPTIONS_FILE="/data/options.json"
-FONT_SIZE="$(jq -r '.terminal_font_size // 14' "${OPTIONS_FILE}")"
-THEME="$(jq -r '.terminal_theme // "dark"' "${OPTIONS_FILE}")"
-SESSION_PERSIST="$(jq -r '.session_persistence // true' "${OPTIONS_FILE}")"
-ENABLE_MCP="$(jq -r '.enable_mcp // true' "${OPTIONS_FILE}")"
-ENABLE_PLAYWRIGHT="$(jq -r '.enable_playwright_mcp // false' "${OPTIONS_FILE}")"
-PLAYWRIGHT_HOST="$(jq -r '.playwright_cdp_host // ""' "${OPTIONS_FILE}")"
+eval "$(jq -r '
+  "FONT_SIZE="   + (.terminal_font_size // 14 | tostring),
+  "THEME="       + (.terminal_theme // "dark"),
+  "SESSION_PERSIST=" + (.session_persistence // true | tostring),
+  "ENABLE_MCP="  + (.enable_mcp // true | tostring),
+  "ENABLE_PLAYWRIGHT=" + (.enable_playwright_mcp // false | tostring),
+  "PLAYWRIGHT_HOST="  + (.playwright_cdp_host // ""),
+  "AUTO_UPDATE_CODEX=" + (.auto_update_codex // false | tostring)
+' "${OPTIONS_FILE}")"
 
+# ---------------------------------------------------------------------------
+# Auto-detect Playwright Browser hostname (if needed)
+# ---------------------------------------------------------------------------
 if [ -z "${PLAYWRIGHT_HOST}" ] && [ "${ENABLE_PLAYWRIGHT}" = "true" ]; then
   echo "[INFO] Auto-detecting Playwright Browser hostname..."
   PLAYWRIGHT_HOST="$(
@@ -130,63 +136,90 @@ if [ -z "${PLAYWRIGHT_HOST}" ] && [ "${ENABLE_PLAYWRIGHT}" = "true" ]; then
   fi
 fi
 
-AUTO_UPDATE_CODEX="$(jq -r '.auto_update_codex // false' "${OPTIONS_FILE}")"
+# ---------------------------------------------------------------------------
+# Auto-update Codex CLI (if enabled)
+# ---------------------------------------------------------------------------
 if [ "${AUTO_UPDATE_CODEX}" = "true" ]; then
-  if npm list -g @openai/codex >/dev/null 2>&1; then
-    echo "[INFO] Checking for Codex updates..."
-    npm update -g @openai/codex >/dev/null 2>&1 || echo "[WARN] Codex update check failed, continuing..."
-  else
-    echo "[INFO] auto_update_codex enabled, but @openai/codex is not globally installed"
-  fi
+  echo "[INFO] Checking for Codex updates..."
+  npm update -g @openai/codex 2>/dev/null || echo "[WARN] Codex update check failed, continuing..."
 fi
 
-if [ "${ENABLE_MCP}" = "true" ]; then
-  if command -v codex >/dev/null 2>&1 && codex mcp list >/dev/null 2>&1; then
-    MCP_HA_CWD="${PERSIST_DIR}/mcp/homeassistant"
-    mkdir -p "${MCP_HA_CWD}"
-    cat > "${MCP_HA_CWD}/hass-mcp-launcher.sh" <<EOF
-#!/usr/bin/env bash
-cd "${MCP_HA_CWD}"
-export HA_URL="${HA_URL}"
-export HA_TOKEN="${HA_TOKEN}"
-exec hass-mcp
-EOF
-    chmod 700 "${MCP_HA_CWD}/hass-mcp-launcher.sh"
+# ---------------------------------------------------------------------------
+# Write MCP config directly to config.toml
+#
+# This replaces the old approach of shelling out to `codex mcp add/remove`
+# which spawned multiple Node.js processes and was slow + fragile.
+#
+# The hass-mcp launcher reads SUPERVISOR_TOKEN at runtime so the token
+# is always fresh (fixes stale-token 500 errors after addon restarts).
+# ---------------------------------------------------------------------------
+MCP_HA_CWD="${PERSIST_DIR}/mcp/homeassistant"
+mkdir -p "${MCP_HA_CWD}"
 
-    codex mcp remove homeassistant >/dev/null 2>&1 || true
-    if codex mcp add homeassistant -- "${MCP_HA_CWD}/hass-mcp-launcher.sh" >/dev/null 2>&1; then
-      echo "[INFO] Codex MCP 'homeassistant' configured"
-    else
-      echo "[WARN] Failed to configure Codex MCP 'homeassistant'"
-    fi
-  else
-    echo "[WARN] Codex CLI MCP commands unavailable; skipping MCP bootstrap"
+# Launcher script — reads SUPERVISOR_TOKEN at runtime, never bakes it in
+cat > "${MCP_HA_CWD}/hass-mcp-launcher.sh" <<'LAUNCHEREOF'
+#!/usr/bin/env bash
+export HA_URL="http://supervisor/core"
+export HA_TOKEN="${SUPERVISOR_TOKEN}"
+exec hass-mcp
+LAUNCHEREOF
+chmod 700 "${MCP_HA_CWD}/hass-mcp-launcher.sh"
+
+# Build config.toml — preserve auth.json and any user customisations
+# by merging MCP sections on top of existing config
+{
+  # Preserve any existing non-MCP config lines (model, approval_policy, etc.)
+  if [ -f "${CONFIG_TOML}" ]; then
+    # Strip old mcp_servers sections — we regenerate them below
+    sed '/^\[mcp_servers\./,/^$/d; /^\[mcp_servers\]/d' "${CONFIG_TOML}" \
+      | sed '/^$/N;/^\n$/d'  # collapse double blank lines
   fi
+
+  echo ""
+
+  if [ "${ENABLE_MCP}" = "true" ]; then
+    cat <<MCPEOF
+
+[mcp_servers.homeassistant]
+command = "${MCP_HA_CWD}/hass-mcp-launcher.sh"
+args = []
+startup_timeout_sec = 15.0
+tool_timeout_sec = 30.0
+
+[mcp_servers.homeassistant.env]
+SUPERVISOR_TOKEN = "${SUPERVISOR_TOKEN:-}"
+MCPEOF
+  fi
+
+  if [ "${ENABLE_PLAYWRIGHT}" = "true" ]; then
+    cat <<MCPEOF
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp", "--cdp-endpoint", "http://${PLAYWRIGHT_HOST}:9222"]
+startup_timeout_sec = 15.0
+tool_timeout_sec = 30.0
+MCPEOF
+  fi
+} > "${CONFIG_TOML}.tmp"
+
+mv "${CONFIG_TOML}.tmp" "${CONFIG_TOML}"
+
+# Log what was configured (to stdout, not into the config file)
+if [ "${ENABLE_MCP}" = "true" ]; then
+  echo "[INFO] MCP 'homeassistant' configured (token passed at runtime via launcher)"
 else
-  if command -v codex >/dev/null 2>&1; then
-    codex mcp remove homeassistant >/dev/null 2>&1 || true
-  fi
   echo "[INFO] MCP disabled"
 fi
-
 if [ "${ENABLE_PLAYWRIGHT}" = "true" ]; then
-  if command -v codex >/dev/null 2>&1 && codex mcp list >/dev/null 2>&1; then
-    codex mcp remove playwright >/dev/null 2>&1 || true
-    if codex mcp add playwright -- npx -y @playwright/mcp --cdp-endpoint "http://${PLAYWRIGHT_HOST}:9222" >/dev/null 2>&1; then
-      echo "[INFO] Codex MCP 'playwright' configured (CDP: http://${PLAYWRIGHT_HOST}:9222)"
-    else
-      echo "[WARN] Failed to configure Codex MCP 'playwright'"
-    fi
-  else
-    echo "[INFO] Playwright MCP endpoint hint: http://${PLAYWRIGHT_HOST}:9222"
-  fi
+  echo "[INFO] MCP 'playwright' configured (CDP: http://${PLAYWRIGHT_HOST}:9222)"
 else
-  if command -v codex >/dev/null 2>&1; then
-    codex mcp remove playwright >/dev/null 2>&1 || true
-  fi
   echo "[INFO] Playwright MCP disabled"
 fi
 
+# ---------------------------------------------------------------------------
+# Terminal theme
+# ---------------------------------------------------------------------------
 if [ "${THEME}" = "dark" ]; then
   COLORS="background=#1e1e2e,foreground=#cdd6f4,cursor=#f5e0dc"
 else
