@@ -7,5 +7,5 @@ build_from:
 labels:
   org.opencontainers.image.title: "Codex Code for Home Assistant"
   org.opencontainers.image.description: "Codex/OpenAI-oriented terminal with Home Assistant integration scaffold"
-  org.opencontainers.image.source: "https://github.com/robsonfelix/robsonfelix-hass-addons"
+  org.opencontainers.image.source: "https://github.com/simon-binks/codexcode"
   org.opencontainers.image.licenses: "MIT"

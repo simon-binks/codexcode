@@ -103,7 +103,7 @@ Workaround:
 2. Use prompts like: `Turn on switch.sad_lamp, then read back its state and confirm success only if it is on.`
 3. Prefer domain-focused queries (`light`, `switch`, `climate`) for faster responses.
 
-### Codex feels slower than Claude in HA tasks
+### Codex feels slower in HA tasks
 
 This usually happens when Codex starts with broad entity discovery and large MCP payloads.
 
@@ -114,5 +114,5 @@ Use:
 
 ## Support
 
-- [GitHub Issues](https://github.com/robsonfelix/robsonfelix-hass-addons/issues)
+- [GitHub Issues](https://github.com/simon-binks/codexcode/issues)
 - [Home Assistant Community](https://community.home-assistant.io/)
