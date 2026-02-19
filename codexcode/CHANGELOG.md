@@ -2,6 +2,13 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.5] - 2026-02-19
+
+### Changed
+- AGENTS.md now instructs Codex to use MCP `call_service_tool` and `entity_action` for all HA actions — the tools execute successfully despite reporting errors.
+- Added "ignore the error, verify with get_entity" workflow so Codex stays on MCP instead of falling back to curl.
+- Removed curl-based workaround as primary method (was causing Codex to bypass MCP entirely).
+
 ## [1.5.4] - 2026-02-19
 
 ### Fixed

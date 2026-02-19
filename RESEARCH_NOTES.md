@@ -32,17 +32,12 @@ These are working notes for development. Delete before final release.
 - `entity_action` `action`: use `"on"` / `"off"` / `"toggle"`, NOT `"turn_on"`
 - `call_service_tool` `data`: must be a dict object, not a JSON string
 
-### Workarounds for broken action tools
-
-**`ha` CLI does NOT work** — the `ha` command inside the addon container does NOT have a `service` subcommand. Running `ha service call ...` gives "unknown command". The `ha` CLI in the addon is the HA Supervisor CLI, not the full HA CLI.
-
-**`curl` to REST API WORKS** — confirmed in screenshot:
-```bash
-curl -s -X POST http://supervisor/core/api/services/<domain>/<service> \
-  -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"entity_id": "<entity_id>"}'
-```
+### Key findings about broken action tools
+- **The action DOES execute on HA** despite the error — confirmed in v1.5.3 screenshot
+- The error is purely about response type validation (list vs dict), not about the action failing
+- Correct approach: use the MCP tools, ignore the error, verify state with `get_entity`
+- `ha` CLI does NOT support `service` subcommand inside addon container
+- `curl` to REST API works as a last-resort fallback but should NOT be the primary method
 
 ### What the screenshot showed (v1.5.3 in action)
 1. User: "turn on the office fire"
