@@ -9,52 +9,50 @@ in HA Core documentation).
 
 ## 0. MCP Tool Usage — READ THIS FIRST
 
-You have Home Assistant MCP tools. Always use MCP tools for ALL interactions with HA.
+You have Home Assistant MCP tools. Use MCP as the primary interaction layer for reads and actions.
+
+### Core behavior rules
+1. Prefer targeted queries (`domain`, `entity_id`, search terms). Avoid full dumps unless requested.
+2. Resolve entity IDs before acting (`search_entities_tool` or `list_entities`).
+3. For state-changing actions, always follow: discover -> act -> verify.
+4. Verification is mandatory: call `get_entity` with `fields: ["state"]` after each action.
+5. Never report success from tool status alone. Report success only from verified post-action state.
+6. If action result is ambiguous, retry once, then stop and surface exact error + current state.
+7. Use read tools first when uncertain (`domain_summary_tool`, `system_overview`, `list_automations`, `get_history`, `get_error_log`).
 
 ### MCP tool reference
 | Tool | Parameters | Notes |
 |------|-----------|-------|
-| `search_entities_tool` | `query` (str), `limit` (int, default 20) | Use to find entities |
+| `search_entities_tool` | `query` (str), `limit` (int, default 20) | Find likely entity IDs quickly |
 | `get_entity` | `entity_id` (str), `fields` (list), `detailed` (bool) | **`fields` MUST be a list**: `["state"]` not `"state"` |
-| `list_entities` | `domain` (str?), `search_query` (str?), `limit` (int), `fields` (list?), `detailed` (bool) | |
-| `domain_summary_tool` | `domain` (str) | |
-| `system_overview` | none | |
-| `list_automations` | none | |
-| `get_history` | `entity_id` (str), `hours` (int, default 24) | |
-| `get_error_log` | none | |
-| `get_version` | none | |
-| `call_service_tool` | `domain` (str), `service` (str), `data` (dict) | Use for ALL service calls. See note below. |
-| `entity_action` | `entity_id` (str), `action` (str: "on"/"off"/"toggle"), `params` (dict?) | Simple on/off/toggle. See note below. |
+| `list_entities` | `domain` (str?), `search_query` (str?), `limit` (int), `fields` (list?), `detailed` (bool) | Best for domain-scoped discovery |
+| `domain_summary_tool` | `domain` (str) | Fast domain health snapshot |
+| `system_overview` | none | Broad system context |
+| `list_automations` | none | Automation inventory and status |
+| `get_history` | `entity_id` (str), `hours` (int, default 24) | Verify behavior over time |
+| `get_error_log` | none | Check runtime failures |
+| `get_version` | none | HA/core integration version checks |
+| `call_service_tool` | `domain` (str), `service` (str), `data` (dict) | Primary general action method |
+| `entity_action` | `entity_id` (str), `action` (str), `params` (dict?) | Simple on/off/toggle actions |
 
-### IMPORTANT: `call_service_tool` and `entity_action` error handling
+### Tool gotchas and error handling
+- `get_entity` `fields` must be a list, not a string.
+- `entity_action` values are `"on"`, `"off"`, `"toggle"` (not `"turn_on"`/`"turn_off"`).
+- In some `hass-mcp` versions, action tools may return response-type validation errors even when HA applied the action.
+- Treat those errors as ambiguous results, not automatic success or failure.
+- Immediate follow-up check:
+  `get_entity(entity_id=..., fields=["state"])`
+- If state matches target: report success.
+- If state does not match target: retry action once and re-check.
+- If still not matched: report failure with exact error and observed state.
 
-These two tools have a known return-type bug. They will report an error like "Unexpected response type" or "dict_type validation error" — but **the action DOES execute successfully on Home Assistant**. The error is only about the response format, not the action.
-
-**You MUST still use these MCP tools.** After calling them:
-1. Ignore the error message
-2. Immediately call `get_entity` with `fields: ["state"]` to verify the new state
-3. Report success/failure based on the `get_entity` result, NOT the tool error
-
-**`call_service_tool` examples:**
-```
-call_service_tool(domain="switch", service="turn_on", data={"entity_id": "switch.office_fire_2"})
-call_service_tool(domain="light", service="turn_on", data={"entity_id": "light.living_room", "brightness": 128})
-call_service_tool(domain="climate", service="set_temperature", data={"entity_id": "climate.thermostat", "temperature": 22})
-```
-
-**`entity_action` examples:**
-```
-entity_action(entity_id="switch.office_fire_2", action="on")
-entity_action(entity_id="light.living_room", action="off")
-entity_action(entity_id="switch.example", action="toggle")
-```
-
-Note: `entity_action` `action` must be `"on"`, `"off"`, or `"toggle"` — NOT `"turn_on"`.
-
-### Standard workflow for ANY device action
-1. `search_entities_tool` — find the entity_id
-2. `call_service_tool` or `entity_action` — perform the action (ignore the error)
-3. `get_entity` with `fields: ["state"]` — verify the state changed and report result
+### Practical playbooks
+1. Toggle device
+   - Discover entity -> act (`call_service_tool` or `entity_action`) -> verify state.
+2. Set a value (brightness/temperature/mode)
+   - Discover entity -> call specific service with `data` -> verify changed state/attributes.
+3. Debug "automation didn't run"
+   - `list_automations` -> check related entity history (`get_history`) -> inspect `get_error_log`.
 
 ---
 
@@ -429,21 +427,6 @@ Accessing attributes in templates:
   seconds: "/30"                 # Every 30 seconds
 ```
 
-**Sun trigger**:
-```yaml
-- trigger: sun
-  event: sunset                  # sunset | sunrise
-  offset: "-01:00:00"           # Optional: before/after
-```
-
-**Event trigger**:
-```yaml
-- trigger: event
-  event_type: "custom_event"
-  event_data:
-    key: value
-```
-
 **MQTT trigger**:
 ```yaml
 - trigger: mqtt
@@ -461,77 +444,18 @@ Accessing attributes in templates:
   for: "00:01:00"                # Optional: must remain true for duration
 ```
 
-**Home Assistant trigger** -- startup/shutdown:
-```yaml
-- trigger: homeassistant
-  event: start                   # start | shutdown
-```
-
-**Webhook trigger**:
-```yaml
-- trigger: webhook
-  webhook_id: "my_unique_hook_id"
-  allowed_methods:
-    - POST
-  local_only: true
-```
-
-**Zone trigger**:
-```yaml
-- trigger: zone
-  entity_id: person.simon
-  zone: zone.home
-  event: enter                   # enter | leave
-```
-
-**Device trigger** (device-specific, usually created via UI):
-```yaml
-- trigger: device
-  device_id: "abc123def456"
-  domain: light
-  type: turned_on
-  entity_id: light.kitchen
-```
-
-**Calendar trigger**:
-```yaml
-- trigger: calendar
-  event: start                   # start | end
-  entity_id: calendar.holidays
-  offset: "-00:30:00"
-```
-
-**Conversation/Sentence trigger** (voice assistants):
-```yaml
-- trigger: conversation
-  command:
-    - "turn on the {room} lights"
-    - "[it's ]party time"
-```
-
-**Tag trigger** (NFC/QR):
-```yaml
-- trigger: tag
-  tag_id: "A7-6B-90-5F"
-  device_id: "optional_device_id"  # Optional: specific scanner only
-```
-
-**Persistent notification trigger**:
-```yaml
-- trigger: persistent_notification
-  update_type:
-    - added
-    - removed
-  notification_id: "invalid_config"  # Optional: specific notification
-```
-
-**Geolocation trigger** (from geolocation platforms):
-```yaml
-- trigger: geo_location
-  source: "usgs_earthquakes_feed"     # Geolocation platform source
-  zone: zone.home
-  event: enter                        # enter | leave
-```
+Other supported trigger platforms (usually UI-generated and integration-specific):
+- `sun`
+- `event`
+- `homeassistant` (start/shutdown)
+- `webhook`
+- `zone`
+- `device`
+- `calendar`
+- `conversation`
+- `tag`
+- `persistent_notification`
+- `geo_location`
 
 ### Trigger Features
 - Every trigger supports `id:` for referencing in conditions (`condition: trigger`)
@@ -553,86 +477,58 @@ Per-platform variables:
 
 | Platform | Key Variables |
 |----------|--------------|
-| `state` / `numeric_state` | `trigger.entity_id`, `trigger.from_state` (full state obj), `trigger.to_state` (full state obj), `trigger.for` (timedelta) |
-| `state` (accessing details) | `trigger.to_state.state`, `trigger.to_state.attributes.brightness`, `trigger.from_state.last_changed` |
-| `numeric_state` (extra) | `trigger.above`, `trigger.below` |
+| `state` / `numeric_state` | `trigger.entity_id`, `trigger.from_state`, `trigger.to_state`, `trigger.for`, `trigger.above`, `trigger.below` |
 | `event` | `trigger.event.event_type`, `trigger.event.data` (dict) |
 | `mqtt` | `trigger.topic`, `trigger.payload`, `trigger.payload_json` (parsed dict), `trigger.qos` |
 | `webhook` | `trigger.webhook_id`, `trigger.json` (parsed body), `trigger.data` (form data), `trigger.query` (query params) |
 | `time` | `trigger.now` (datetime that triggered) |
-| `time_pattern` | `trigger.now` |
 | `zone` | `trigger.entity_id`, `trigger.from_state`, `trigger.to_state`, `trigger.zone`, `trigger.event` |
-| `calendar` | `trigger.calendar_event.summary`, `trigger.calendar_event.start`, `trigger.calendar_event.end`, `trigger.event` ("start"/"end"), `trigger.offset` |
-| `conversation` | `trigger.sentence`, `trigger.slots` (dict of matched wildcards), `trigger.device_id` |
-| `tag` | `trigger.tag_id`, `trigger.device_id` |
-| `sun` | `trigger.event` ("sunrise"/"sunset") |
 | `template` | `trigger.entity_id` (entity that caused re-eval), `trigger.from_state`, `trigger.to_state` |
-| `homeassistant` | `trigger.event` ("start"/"shutdown") |
-| `persistent_notification` | `trigger.update_type`, `trigger.notification.notification_id`, `trigger.notification.title`, `trigger.notification.message` |
-| `geo_location` | `trigger.entity_id`, `trigger.zone`, `trigger.event` |
+
+For less-common platforms (`calendar`, `conversation`, `tag`, `sun`, `homeassistant`, `persistent_notification`, `geo_location`), inspect an existing automation trace/YAML to view exact `trigger.*` fields.
 
 ### Condition Types
 
 All conditions listed must be true (implicit AND). Conditions evaluate **current** state, not the state at trigger time.
 
-**State condition**:
+Most-used condition types:
+- `state`
+- `numeric_state`
+- `time`
+- `template`
+- `trigger`
+- Logical blocks: `and`, `or`, `not`
+- Also supported: `sun`, `zone`
+
 ```yaml
+# State condition
 - condition: state
   entity_id: device_tracker.simon
   state: "home"
   for:
-    minutes: 10                  # Optional: must have been in state for duration
-```
+    minutes: 10
 
-**Numeric state condition**:
-```yaml
+# Numeric state condition
 - condition: numeric_state
   entity_id: sensor.temperature
   above: 17
   below: 25
-  attribute: current_temperature  # Optional
-```
 
-**Time condition**:
-```yaml
+# Time condition
 - condition: time
   after: "22:00:00"
   before: "06:00:00"
-  weekday:
-    - sat
-    - sun
-```
+  weekday: [sat, sun]
 
-**Sun condition**:
-```yaml
-- condition: sun
-  after: sunset
-  after_offset: "-01:00:00"
-  before: sunrise
-```
-
-**Zone condition**:
-```yaml
-- condition: zone
-  entity_id: person.simon
-  zone: zone.home
-```
-
-**Template condition**:
-```yaml
+# Template condition
 - condition: template
-  value_template: "{{ states('sensor.battery') | int > 20 }}"
-```
+  value_template: "{{ states('sensor.battery') | int(0) > 20 }}"
 
-**Trigger condition** (which trigger fired):
-```yaml
+# Trigger condition (which trigger fired)
 - condition: trigger
   id: motion_trigger
-```
 
-**Logical conditions**:
-```yaml
-# AND (all must be true)
+# Logical composition
 - condition: and
   conditions:
     - condition: state
@@ -642,26 +538,7 @@ All conditions listed must be true (implicit AND). Conditions evaluate **current
       entity_id: sensor.lux
       below: 100
 
-# OR (any must be true)
-- condition: or
-  conditions:
-    - condition: state
-      entity_id: person.simon
-      state: "home"
-    - condition: state
-      entity_id: person.jane
-      state: "home"
-
-# NOT (all must be false)
-- condition: not
-  conditions:
-    - condition: state
-      entity_id: input_boolean.vacation
-      state: "on"
-```
-
-**Shorthand template condition** (string instead of mapping):
-```yaml
+# Shorthand template condition
 conditions: "{{ state_attr('sun.sun', 'elevation') < 4 }}"
 ```
 
@@ -726,21 +603,14 @@ script:
 | Entity created | `automation.name` | `script.name` |
 | Calling | Triggered by events | `action: script.script_name` or `action: script.turn_on` |
 
-### Script Action Types (usable in both automations and scripts)
+### Script Flow Controls (usable in both automations and scripts)
+
+Service-call syntax is shared with automations and documented in Section 6 (`action` + `target` + `data`).
+This section focuses on script/sequence control primitives.
 
 ```yaml
-# Service/action call
-- action: light.turn_on
-  target:
-    entity_id: light.kitchen
-  data:
-    brightness_pct: 80
-
 # Delay
-- delay:
-    seconds: 30
 - delay: "00:00:30"
-- delay: "{{ delay_seconds }}"
 
 # Wait for condition
 - wait_template: "{{ is_state('binary_sensor.door', 'off') }}"
@@ -754,7 +624,7 @@ script:
       to: "off"
   timeout: "00:05:00"
 
-# Conditional (if/then/else)
+# if/then/else
 - if:
     - condition: state
       entity_id: light.kitchen
@@ -768,30 +638,19 @@ script:
       target:
         entity_id: light.kitchen
 
-# Choose (multi-branch)
+# choose/default
 - choose:
-    - conditions:
-        - condition: state
-          entity_id: input_select.mode
-          state: "movie"
+    - conditions: "{{ is_state('input_select.mode', 'movie') }}"
       sequence:
         - action: scene.turn_on
           target:
             entity_id: scene.movie_mode
-    - conditions:
-        - condition: state
-          entity_id: input_select.mode
-          state: "dinner"
-      sequence:
-        - action: scene.turn_on
-          target:
-            entity_id: scene.dinner_mode
   default:
     - action: scene.turn_on
       target:
         entity_id: scene.default
 
-# Repeat (count, while, until, for_each)
+# repeat (count / while / for_each)
 - repeat:
     count: 5
     sequence:
@@ -801,58 +660,23 @@ script:
       - delay:
           seconds: 1
 
-- repeat:
-    while:
-      - condition: state
-        entity_id: input_boolean.running
-        state: "on"
-    sequence:
-      - action: notify.mobile_app
-        data:
-          message: "Still running..."
-      - delay:
-          minutes: 5
-
-- repeat:
-    for_each:
-      - "light.kitchen"
-      - "light.bedroom"
-      - "light.living_room"
-    sequence:
-      - action: light.turn_on
-        target:
-          entity_id: "{{ repeat.item }}"
-        data:
-          brightness_pct: 50
-
-# Parallel execution
+# parallel branches
 - parallel:
     - action: light.turn_on
       target:
         entity_id: light.kitchen
-    - action: media_player.play_media
+    - action: media_player.media_play
       target:
         entity_id: media_player.speaker
-      data:
-        media_content_id: "http://example.com/music.mp3"
-        media_content_type: "music"
 
-# Fire event
-- event: custom_event_name
-  event_data:
-    key: value
-
-# Set variables
+# variables + stop + continue_on_error
 - variables:
-    my_var: "{{ states('sensor.temp') | float }}"
-
-# Stop execution
-- stop: "Reason for stopping"
-  response_variable: result  # Optional: for script responses
-
-# Continue on error
-- action: notify.unreliable_service
+    my_var: "{{ states('sensor.temp') | float(0) }}"
+- action: notify.notify
+  data:
+    message: "Attempt notification"
   continue_on_error: true
+- stop: "Done"
 ```
 
 ---
@@ -888,285 +712,64 @@ action: homeassistant.update_entity     # Force state refresh
 
 ### Common Services by Domain
 
-**Light** (`light.*`):
+This is intentionally compact. Keep this as a quick map; use Developer Tools -> Actions in HA UI for integration-specific fields.
+
+| Domain | Most-used services |
+|--------|--------------------|
+| `light` | `turn_on`, `turn_off`, `toggle` |
+| `switch` | `turn_on`, `turn_off`, `toggle` |
+| `climate` | `set_temperature`, `set_hvac_mode`, `set_fan_mode`, `set_preset_mode`, `turn_on`, `turn_off` |
+| `cover` | `open_cover`, `close_cover`, `stop_cover`, `set_cover_position` |
+| `media_player` | `turn_on`, `turn_off`, `media_play`, `media_pause`, `volume_set`, `play_media`, `select_source` |
+| `fan` | `turn_on`, `turn_off`, `set_percentage`, `set_preset_mode`, `oscillate`, `set_direction` |
+| `lock` | `lock`, `unlock` |
+| `vacuum` | `start`, `pause`, `stop`, `return_to_base`, `locate`, `set_fan_speed` |
+| `scene` | `turn_on` |
+| `script` | `script_name`, `turn_on` |
+| `notify` | `notify`, `mobile_app_*` |
+| `input_*`, `counter`, `timer` | `set_value`, `select_option`, `set_datetime`, `increment`, `decrement`, `start`, `cancel` |
+
+Representative examples:
+
 ```yaml
-# Turn on with options
+# Light
 action: light.turn_on
 target:
   entity_id: light.kitchen
 data:
-  brightness: 255              # 0-255
-  brightness_pct: 100          # 0-100 (alternative)
-  brightness_step_pct: 10      # Relative adjustment
-  color_temp_kelvin: 2700      # Color temperature in Kelvin
-  rgb_color: [255, 0, 0]       # RGB values
-  rgbw_color: [255, 0, 0, 128] # RGBW values
-  hs_color: [300, 70]          # Hue (0-360), Saturation (0-100)
-  xy_color: [0.52, 0.43]       # CIE xy color
-  color_name: "red"            # CSS3 color name
-  effect: "colorloop"          # Light effect name
-  flash: "short"               # short | long
-  transition: 2                # Seconds for transition
-  white: true                  # Switch to white mode
+  brightness_pct: 80
+  color_temp_kelvin: 3000
 
-# Turn off
-action: light.turn_off
-target:
-  entity_id: light.kitchen
-data:
-  transition: 2
-
-# Toggle
-action: light.toggle
-target:
-  entity_id: light.kitchen
-```
-
-**Switch** (`switch.*`):
-```yaml
-action: switch.turn_on
-action: switch.turn_off
-action: switch.toggle
-target:
-  entity_id: switch.heater
-```
-
-**Climate** (`climate.*`):
-```yaml
+# Climate
 action: climate.set_temperature
 target:
   entity_id: climate.living_room
 data:
-  temperature: 22              # Target temp (single setpoint)
-  target_temp_high: 24         # Upper bound (heat_cool mode)
-  target_temp_low: 20          # Lower bound (heat_cool mode)
-  hvac_mode: heat              # Optional: also set mode
+  temperature: 21
+  hvac_mode: heat
 
-action: climate.set_hvac_mode
-data:
-  hvac_mode: heat              # off | heat | cool | heat_cool | auto | dry | fan_only
-
-action: climate.set_fan_mode
-data:
-  fan_mode: "auto"             # Device-specific: auto, low, medium, high
-
-action: climate.set_preset_mode
-data:
-  preset_mode: "eco"           # Device-specific: eco, away, boost, comfort, home, sleep
-
-action: climate.set_humidity
-data:
-  humidity: 50
-
-action: climate.set_swing_mode
-data:
-  swing_mode: "both"           # off | vertical | horizontal | both
-
-action: climate.turn_on
-action: climate.turn_off
-```
-
-**Cover** (`cover.*`):
-```yaml
-action: cover.open_cover
-action: cover.close_cover
-action: cover.stop_cover
-action: cover.toggle
-
-action: cover.set_cover_position
-data:
-  position: 50                 # 0 (closed) to 100 (open)
-
-action: cover.open_cover_tilt
-action: cover.close_cover_tilt
-action: cover.set_cover_tilt_position
-data:
-  tilt_position: 50            # 0-100
-```
-
-**Media Player** (`media_player.*`):
-```yaml
-action: media_player.turn_on
-action: media_player.turn_off
-action: media_player.toggle
-
-action: media_player.volume_set
-data:
-  volume_level: 0.5            # 0.0 to 1.0
-
-action: media_player.volume_up
-action: media_player.volume_down
-
-action: media_player.volume_mute
-data:
-  is_volume_muted: true
-
-action: media_player.media_play
-action: media_player.media_pause
-action: media_player.media_play_pause
-action: media_player.media_stop
-action: media_player.media_next_track
-action: media_player.media_previous_track
-
+# Media player
 action: media_player.play_media
+target:
+  entity_id: media_player.living_room
 data:
   media_content_id: "http://example.com/song.mp3"
-  media_content_type: "music"  # music | tvshow | video | episode | channel | playlist
-  enqueue: play                # play | next | add | replace
-  announce: true               # Announce mode (resume after)
+  media_content_type: "music"
 
-action: media_player.select_source
-data:
-  source: "HDMI 1"
-
-action: media_player.shuffle_set
-data:
-  shuffle: true
-
-action: media_player.repeat_set
-data:
-  repeat: "all"                # off | all | one
-
-action: media_player.join
-data:
-  group_members:
-    - media_player.speaker_2
-action: media_player.unjoin
-```
-
-**Fan** (`fan.*`):
-```yaml
-action: fan.turn_on
-data:
-  percentage: 50               # Speed 0-100
-  preset_mode: "auto"
-action: fan.turn_off
-action: fan.toggle
-action: fan.set_percentage
-data:
-  percentage: 75
-action: fan.set_preset_mode
-data:
-  preset_mode: "sleep"
-action: fan.oscillate
-data:
-  oscillating: true
-action: fan.set_direction
-data:
-  direction: "forward"         # forward | reverse
-```
-
-**Lock** (`lock.*`):
-```yaml
-action: lock.lock
-action: lock.unlock
-action: lock.open               # Physically open (if supported)
-```
-
-**Vacuum** (`vacuum.*`):
-```yaml
-action: vacuum.start
-action: vacuum.stop
-action: vacuum.pause
-action: vacuum.return_to_base
-action: vacuum.locate
-action: vacuum.set_fan_speed
-data:
-  fan_speed: "turbo"
-action: vacuum.send_command
-data:
-  command: "app_goto_target"
-  params:
-    - 25500
-    - 25500
-```
-
-**Notify** (`notify.*`):
-```yaml
-action: notify.notify           # All notification targets
-data:
-  title: "Alert"
-  message: "Something happened"
-
-action: notify.mobile_app_phone_name
-data:
-  title: "Alert"
-  message: "Motion detected"
-  data:                         # Mobile app specific
-    image: "/local/camera.jpg"
-    actions:
-      - action: "TURN_OFF"
-        title: "Turn Off"
-```
-
-**Scene** (`scene.*`):
-```yaml
-action: scene.turn_on
-target:
-  entity_id: scene.movie_night
-data:
-  transition: 2                 # Optional transition time
-```
-
-**Script** (calling scripts):
-```yaml
-action: script.flash_light
-data:
-  target_light: light.kitchen
-  count: 5
-
-# Or use turn_on for fire-and-forget
+# Script
 action: script.turn_on
 target:
   entity_id: script.flash_light
-```
-
-**Input helpers**:
-```yaml
-action: input_boolean.turn_on
-action: input_boolean.turn_off
-action: input_boolean.toggle
-target:
-  entity_id: input_boolean.guest_mode
-
-action: input_number.set_value
 data:
-  value: 42
+  variables:
+    target_light: light.kitchen
+
+# Input helper
+action: input_number.set_value
 target:
   entity_id: input_number.target_temp
-
-action: input_select.select_option
 data:
-  option: "Away"
-target:
-  entity_id: input_select.house_mode
-
-action: input_text.set_value
-data:
-  value: "Hello World"
-target:
-  entity_id: input_text.message
-
-action: input_datetime.set_datetime
-data:
-  time: "07:30:00"
-target:
-  entity_id: input_datetime.alarm_time
-
-action: counter.increment
-action: counter.decrement
-action: counter.reset
-target:
-  entity_id: counter.visitors
-
-action: timer.start
-data:
-  duration: "00:10:00"
-action: timer.pause
-action: timer.cancel
-action: timer.finish
-target:
-  entity_id: timer.kitchen
+  value: 42
 ```
 
 ---
@@ -1583,113 +1186,42 @@ views:
 
 ### Common Card Types
 
-**Entities card** (list of entities with states and controls):
+Use this as a high-signal starter set. Additional card types (`glance`, `history-graph`, `map`, `picture-elements`, `area`, stacks) follow the same structure.
+
+**Entities card**:
 ```yaml
 - type: entities
   title: "Kitchen"
-  show_header_toggle: true
-  state_color: true
   entities:
-    - entity: light.kitchen
-      name: "Ceiling Light"
-      icon: mdi:ceiling-light
-    - entity: sensor.kitchen_temp
-      secondary_info: last-changed
-    - type: divider
-    - type: section
-      label: "Appliances"
-    - entity: switch.coffee_maker
+    - light.kitchen
+    - sensor.kitchen_temp
+    - switch.coffee_maker
 ```
 
-**Tile card** (modern, compact):
+**Tile card**:
 ```yaml
 - type: tile
   entity: light.bedroom
-  name: "Bedroom Light"
-  icon: mdi:lamp
-  color: yellow
   features:
     - type: light-brightness
-    - type: light-color-temp
-  vertical: false
 ```
 
 **Button card**:
 ```yaml
 - type: button
   entity: script.goodnight
-  name: "Good Night"
-  icon: mdi:weather-night
   tap_action:
     action: call-service
     service: script.goodnight
-  show_state: false
-```
-
-**Glance card** (compact multi-entity overview):
-```yaml
-- type: glance
-  title: "At a Glance"
-  columns: 4
-  show_name: true
-  show_state: true
-  entities:
-    - entity: sensor.temperature
-    - entity: sensor.humidity
-    - entity: binary_sensor.motion
-    - entity: light.living_room
-```
-
-**Gauge card**:
-```yaml
-- type: gauge
-  entity: sensor.cpu_usage
-  name: "CPU"
-  min: 0
-  max: 100
-  severity:
-    green: 0
-    yellow: 60
-    red: 85
 ```
 
 **Thermostat card**:
 ```yaml
 - type: thermostat
   entity: climate.living_room
-  features:
-    - type: climate-hvac-modes
-      hvac_modes:
-        - heat
-        - cool
-        - "off"
 ```
 
-**History graph card**:
-```yaml
-- type: history-graph
-  title: "Temperature History"
-  hours_to_show: 24
-  entities:
-    - entity: sensor.kitchen_temp
-      name: "Kitchen"
-    - entity: sensor.bedroom_temp
-      name: "Bedroom"
-```
-
-**Markdown card**:
-```yaml
-- type: markdown
-  title: "Status"
-  content: >
-    ## Welcome Home
-
-    Temperature: {{ states('sensor.temperature') }}°C
-
-    Lights on: {{ states.light | selectattr('state','eq','on') | list | count }}
-```
-
-**Conditional card** (show/hide based on state):
+**Conditional card**:
 ```yaml
 - type: conditional
   conditions:
@@ -1698,86 +1230,26 @@ views:
       state: "on"
   card:
     type: entities
-    title: "Guest Controls"
     entities:
       - light.guest_room
       - climate.guest_room
-```
-
-**Horizontal/Vertical stack** (layout):
-```yaml
-- type: horizontal-stack
-  cards:
-    - type: button
-      entity: light.kitchen
-    - type: button
-      entity: light.bedroom
-    - type: button
-      entity: light.living_room
-
-- type: vertical-stack
-  cards:
-    - type: entities
-      entities:
-        - sensor.temperature
-    - type: gauge
-      entity: sensor.humidity
 ```
 
 **Grid card**:
 ```yaml
 - type: grid
   columns: 3
-  square: false
   cards:
     - type: tile
       entity: light.kitchen
     - type: tile
       entity: light.bedroom
-    - type: tile
-      entity: light.living_room
 ```
 
-**Map card**:
-```yaml
-- type: map
-  default_zoom: 15
-  entities:
-    - entity: person.simon
-    - entity: zone.home
-```
-
-**Picture elements card** (overlay controls on image):
-```yaml
-- type: picture-elements
-  image: /local/floorplan.png
-  elements:
-    - type: state-icon
-      entity: light.kitchen
-      style:
-        left: 30%
-        top: 40%
-    - type: state-label
-      entity: sensor.temperature
-      style:
-        left: 60%
-        top: 20%
-```
-
-**Area card**:
-```yaml
-- type: area
-  area: kitchen
-  show_camera: true
-  navigation_path: /kitchen
-```
-
-**Custom cards** (from HACS or manual):
+**Custom card**:
 ```yaml
 - type: "custom:mushroom-light-card"
   entity: light.kitchen
-  show_brightness_control: true
-  show_color_temp_control: true
 ```
 
 ---
@@ -1786,10 +1258,18 @@ views:
 
 ### Manual Entity Configuration
 
+Manual MQTT entities are useful when auto-discovery is unavailable or when you need explicit topics/templates.
+
+Core field patterns:
+- Read-only entities: `state_topic` (+ `value_template` if JSON payload)
+- Controllable entities: `state_topic` + `command_topic`
+- Use `unique_id` for stable UI management
+- Use `device_class` / `state_class` where applicable
+
 ```yaml
 # configuration.yaml
 mqtt:
-  # Sensors (state_topic only)
+  # Read-only sensor
   - sensor:
       name: "Living Room Temperature"
       unique_id: mqtt_living_temp
@@ -1798,18 +1278,8 @@ mqtt:
       device_class: temperature
       state_class: measurement
       value_template: "{{ value_json.temperature }}"
-      json_attributes_topic: "home/living_room/temperature"
-      json_attributes_template: "{{ value_json | tojson }}"
 
-  - binary_sensor:
-      name: "Front Door"
-      unique_id: mqtt_front_door
-      state_topic: "home/front_door/state"
-      payload_on: "OPEN"
-      payload_off: "CLOSED"
-      device_class: door
-
-  # Controllable entities (state_topic + command_topic)
+  # Controllable switch
   - switch:
       name: "Garden Pump"
       unique_id: mqtt_garden_pump
@@ -1821,19 +1291,7 @@ mqtt:
       state_off: "OFF"
       optimistic: false
 
-  - light:
-      name: "Kitchen Light"
-      unique_id: mqtt_kitchen_light
-      state_topic: "home/kitchen/light/state"
-      command_topic: "home/kitchen/light/set"
-      brightness_state_topic: "home/kitchen/light/brightness/state"
-      brightness_command_topic: "home/kitchen/light/brightness/set"
-      brightness_scale: 255
-      payload_on: "ON"
-      payload_off: "OFF"
-      schema: default              # default | json | template
-
-  # JSON schema light (all-in-one JSON messages)
+  # Controllable light (JSON schema)
   - light:
       name: "RGB Strip"
       unique_id: mqtt_rgb_strip
@@ -1846,6 +1304,7 @@ mqtt:
         - rgb
         - color_temp
 
+  # Controllable climate
   - climate:
       name: "Bedroom AC"
       unique_id: mqtt_bedroom_ac
@@ -1858,10 +1317,6 @@ mqtt:
         - "off"
         - "cool"
         - "heat"
-        - "auto"
-      min_temp: 16
-      max_temp: 30
-      temp_step: 1
 ```
 
 ### MQTT Discovery
@@ -1904,33 +1359,33 @@ expands to the `base_topic` defined in the payload.
 
 ## 13. Zigbee2MQTT Entity Patterns
 
-When Zigbee2MQTT is configured with HA MQTT discovery, entities are auto-created.
+With MQTT discovery enabled, Zigbee2MQTT entities are auto-created in HA.
 
-### Default Entity Naming
+### Naming pattern
 
-Format: `domain.device_friendly_name_property`
+Format is usually:
+`domain.device_friendly_name_property`
 
-| Device Type | Entities Created |
-|------------|-----------------|
-| Motion sensor | `binary_sensor.name_occupancy`, `sensor.name_battery`, `sensor.name_illuminance`, `binary_sensor.name_tamper` |
-| Door/window sensor | `binary_sensor.name_contact`, `sensor.name_battery` |
-| Temperature/humidity sensor | `sensor.name_temperature`, `sensor.name_humidity`, `sensor.name_battery` |
-| Smart plug | `switch.name`, `sensor.name_power`, `sensor.name_energy`, `sensor.name_voltage`, `sensor.name_current` |
-| Light bulb | `light.name` (with brightness, color_temp, rgb depending on capabilities) |
-| Button/remote | `sensor.name_action` (value = button event like "single", "double", "hold") |
-| Thermostat | `climate.name`, `sensor.name_battery` |
-| Vibration sensor | `binary_sensor.name_vibration`, `sensor.name_battery` |
+Common outputs:
+- Motion: `binary_sensor.<name>_occupancy`, plus battery/illuminance sensors
+- Contact: `binary_sensor.<name>_contact`
+- Buttons/remotes: `sensor.<name>_action`
+- Plugs: `switch.<name>` plus power/energy sensors
+- Lights: `light.<name>`
 
-### Triggering on Zigbee2MQTT Button Events
+Exact suffixes depend on the device converter and exposed features.
 
+### Triggering button events
+
+Prefer the created action sensor:
 ```yaml
 triggers:
   - trigger: state
     entity_id: sensor.ikea_button_action
-    to: "toggle"                   # or "brightness_up", "brightness_down", etc.
+    to: "toggle"
 ```
 
-Or via MQTT directly:
+Direct MQTT trigger is also valid when needed:
 ```yaml
 triggers:
   - trigger: mqtt
@@ -1946,29 +1401,23 @@ ESPHome devices auto-register entities via native API or MQTT.
 
 ### Entity ID Convention
 
-Format: `domain.device_name_sensor_name`
+Typical format:
+`domain.device_name_component_name`
 
-The device's `friendly_name` (or `name`) is prefixed to each component's name.
+The node `name`/`friendly_name` is usually prefixed to each component.
 
-| ESPHome Component | HA Domain | Example Entity ID |
-|------------------|-----------|-------------------|
-| `sensor:` | `sensor` | `sensor.weather_station_temperature` |
-| `binary_sensor:` | `binary_sensor` | `binary_sensor.garage_door_open` |
-| `switch:` | `switch` | `switch.garden_irrigation_zone1` |
-| `light:` | `light` | `light.desk_led_strip` |
-| `fan:` | `fan` | `fan.bedroom_ceiling` |
-| `climate:` | `climate` | `climate.thermostat_living_room` |
-| `cover:` | `cover` | `cover.blinds_bedroom` |
-| `number:` | `number` | `number.led_brightness_limit` |
-| `select:` | `select` | `select.display_mode` |
-| `button:` | `button` | `button.restart_device` |
-| `text_sensor:` | `sensor` | `sensor.device_ip_address` |
+Common mappings:
+- `sensor`, `binary_sensor`, `switch`, `light`, `fan`, `climate`, `cover`
+- `number`, `select`, `button`
+- `text_sensor` usually appears under HA `sensor`
 
 ### Accessing ESPHome Services
 
-ESPHome devices expose device-specific services:
+Most interactions happen through normal entity services (Section 6), because ESPHome components surface as regular HA entities.
+
+Some custom ESPHome actions may also expose service names in this form:
 ```yaml
-action: esphome.device_name_service_name
+action: esphome.node_name_service_name
 data:
   parameter: value
 ```
@@ -2034,60 +1483,50 @@ actions:
 
 ### Common Selectors
 
+Use the smallest selector that matches intent. Most blueprint inputs only need a subset of these.
+
 ```yaml
 selector:
+  # Pick one or more entities
   entity:
     domain: light
-    device_class: motion
     multiple: true
-  device:
-    integration: zha
-    manufacturer: "IKEA"
-    model: "TRADFRI"
-  area:
-    multiple: false
+
+  # Target selector (entity/device/area)
   target:
     entity:
       domain: light
+
+  # Numeric input
   number:
     min: 0
     max: 100
     step: 1
     unit_of_measurement: "%"
-    mode: slider                    # slider | box
+
+  # Toggle
   boolean:
+
+  # Text input
   text:
     multiline: false
-    type: text                      # text | password | email | url
+    type: text
+
+  # Enumerated choices
+  select:
+    options:
+      - "Home"
+      - "Away"
+      - "Night"
+
+  # Common time/date selectors
   time:
   date:
   datetime:
   duration:
-  color_temp:
-    min_mireds: 153
-    max_mireds: 500
-  select:
-    options:
-      - "Option A"
-      - "Option B"
-      - label: "Option C"
-        value: "c"
-    multiple: false
-    mode: dropdown                  # dropdown | list
-  object:                           # Free-form YAML input
-  action:                           # Action sequence editor
-  color_rgb:
-  icon:
-  theme:
-  location:
-    radius: true
-  media:
-  trigger:
-  condition:
-  state:
-    entity_id: input_select.mode
-  template:
 ```
+
+Additional selectors exist (`device`, `area`, `object`, `action`, `trigger`, `condition`, `template`, `color_*`, `icon`, `theme`, `location`, `media`) and are best chosen per blueprint use case.
 
 ---
 
@@ -2176,13 +1615,13 @@ homeassistant:
 
 ### Common YAML mistakes
 - **Indentation**: Always use 2 spaces, never tabs.
-- **Unquoted `on`/`off`**: YAML interprets bare `on`/`off`/`yes`/`no` as booleans. Always quote: `"on"`, `"off"`.
-- **Missing quotes on templates**: Single-line templates must be quoted: `"{{ states('sensor.x') }}"`.
-- **entity_id vs target**: Modern format uses `target: { entity_id: ... }`, not `data: { entity_id: ... }`.
-- **trigger vs triggers**: Modern format uses plural `triggers:`, `conditions:`, `actions:`. Singular forms still work but are deprecated.
+- **Unquoted `on`/`off`**: YAML interprets bare `on`/`off`/`yes`/`no` as booleans. Quote state strings.
+- **Template formatting**: See Section 7 template rules (single-line quoted, multi-line block scalars).
+- **Service call structure**: See Section 6 (`action` + `target` + `data`) instead of ad-hoc payload layout.
+- **Automation key names**: Use modern plural keys (`triggers`, `conditions`, `actions`) for consistency.
 - **Duplicate keys**: YAML silently drops duplicate keys. Use packages or includes to avoid.
-- **Float comparison**: `states()` returns strings. Always `| float(0)` before comparing.
-- **Unavailable entities**: Check `has_value()` before using entity states in templates.
+- **Float comparison**: `states()` returns strings. Cast first (`| float(0)` / `| int(0)`).
+- **Unavailable entities**: Check `has_value()` before using state values in templates.
 - **Include format mismatch**: Files included via `!include` must NOT contain the parent key. E.g., a file included as `automation: !include automations.yaml` should contain a list starting with `- id:`, NOT `automation:` at the top.
 - **UTF-8 encoding**: All YAML files must be UTF-8 encoded. Non-UTF-8 characters cause codec errors.
 - **`.yml` vs `.yaml`**: Directory include directives only pick up `.yaml` files, not `.yml`.
