@@ -7,6 +7,61 @@ in HA Core documentation).
 
 ---
 
+## 0. MCP Tool Usage — CRITICAL
+
+You have Home Assistant MCP tools available. Some have known bugs. Follow these rules:
+
+### Tools that WORK reliably (use these freely)
+- `search_entities_tool` — search entities by name/query
+- `get_entity` — get state and attributes of a specific entity
+- `list_entities` — list entities with optional domain filter
+- `domain_summary_tool` — summarize all entities in a domain
+- `system_overview` — full HA system overview
+- `list_automations` — list all automations
+- `get_history` — get entity state history
+- `get_error_log` — get HA error log
+- `get_version` — get HA version
+
+### Tools that are BROKEN (do NOT use)
+- **`entity_action`** — returns wrong type, causes "Unexpected response type" error
+- **`call_service_tool`** — returns wrong type, causes "dict_type validation error"
+
+These two tools fail due to an upstream return-type bug in hass-mcp v0.1.1.
+The action may actually succeed on the HA side even though the tool reports an error.
+
+### How to control HA devices instead
+
+**Option A: Use the `ha` CLI (preferred for simple actions)**
+```bash
+# Turn on/off/toggle
+ha service call switch.turn_on --data '{"entity_id": "switch.example"}'
+ha service call light.turn_on --data '{"entity_id": "light.example", "brightness": 255}'
+ha service call climate.set_temperature --data '{"entity_id": "climate.example", "temperature": 22}'
+
+# Any service call
+ha service call <domain>.<service> --data '{"entity_id": "...", ...}'
+```
+
+**Option B: Use curl to the REST API**
+```bash
+# Turn on a switch
+curl -s -X POST http://supervisor/core/api/services/switch/turn_on \
+  -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"entity_id": "switch.example"}'
+
+# Get entity state
+curl -s http://supervisor/core/api/states/switch.example \
+  -H "Authorization: Bearer ${SUPERVISOR_TOKEN}"
+```
+
+### Recommended workflow for actions
+1. Use MCP `search_entities_tool` or `get_entity` to find/verify the entity
+2. Use `ha service call` or `curl` to perform the action
+3. Use MCP `get_entity` to verify the state changed
+
+---
+
 ## 1. File Structure (`/homeassistant`)
 
 ```

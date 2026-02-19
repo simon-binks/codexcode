@@ -2,6 +2,13 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.3] - 2026-02-19
+
+### Added
+- MCP tool usage guide in AGENTS.md — documents which hass-mcp tools work reliably and which are broken (`entity_action`, `call_service_tool` have upstream return-type bugs in hass-mcp v0.1.1).
+- Workaround instructions for device control via `ha` CLI and REST API `curl` commands.
+- Recommended workflow: use MCP for reads, `ha service call` for actions, MCP to verify state.
+
 ## [1.5.2] - 2026-02-18
 
 ### Fixed
