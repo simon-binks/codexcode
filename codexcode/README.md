@@ -96,7 +96,7 @@ Use device auth in the add-on terminal instead:
 
 ### MCP action reported failed but HA state changed
 
-Some `hass-mcp` action responses can fail strict response validation in Codex even when Home Assistant applied the action successfully.
+If a Home Assistant action appears inconsistent, verify final state with a follow-up read (`GetLiveContext` in Agent Builder or equivalent MCP read tools).
 
 Workaround:
 1. Ask Codex to verify state after each action.

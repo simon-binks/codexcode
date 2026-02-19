@@ -14,7 +14,7 @@ profile codexcode flags=(attach_disconnected,mediate_deleted) {
   capability dac_read_search,
   capability sys_tty_config,
 
-  # Network access for OpenAI/Codex API and hass-mcp
+  # Network access for OpenAI/Codex API and Home Assistant MCP
   network,
 
   # PTY/TTY access for terminal

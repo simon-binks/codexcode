@@ -87,25 +87,22 @@ fi
 MCP_HA_CWD="${PERSIST_DIR}/mcp/homeassistant"
 mkdir -p "${MCP_HA_CWD}"
 
-# Launcher script — reads SUPERVISOR_TOKEN at runtime, never bakes it in
-# and prefers Home Assistant MCP implementations that expose HassTurnOn/HassTurnOff.
+# Launcher script — reads SUPERVISOR_TOKEN at runtime, never bakes it in.
+# This add-on only supports Home Assistant MCP backends that expose Hass* tools.
 cat > "${MCP_HA_CWD}/ha-mcp-launcher.sh" <<'LAUNCHEREOF'
 #!/usr/bin/env bash
 export HA_URL="http://supervisor/core"
 export HA_TOKEN="${SUPERVISOR_TOKEN}"
 
-# Prefer newer HA MCP servers first (tool families like HassTurnOn/HassTurnOff),
-# then fall back to hass-mcp for compatibility.
+# Prefer HA MCP servers that expose tool families like HassTurnOn/HassTurnOff.
 if command -v homeassistant-mcp >/dev/null 2>&1; then
   exec homeassistant-mcp
 elif command -v home-assistant-mcp >/dev/null 2>&1; then
   exec home-assistant-mcp
 elif command -v ha-mcp >/dev/null 2>&1; then
   exec ha-mcp
-elif command -v hass-mcp >/dev/null 2>&1; then
-  exec hass-mcp
 else
-  echo "[ERROR] No Home Assistant MCP server binary found (tried: homeassistant-mcp, home-assistant-mcp, ha-mcp, hass-mcp)" >&2
+  echo "[ERROR] No supported Home Assistant MCP server binary found (tried: homeassistant-mcp, home-assistant-mcp, ha-mcp)" >&2
   exit 127
 fi
 LAUNCHEREOF

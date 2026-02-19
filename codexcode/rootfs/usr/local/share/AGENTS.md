@@ -13,55 +13,43 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 
 ### Core behavior rules
 1. Prefer targeted queries (`domain`, `entity_id`, search terms). Avoid full dumps unless requested.
-2. Resolve entity IDs before acting (`search_entities_tool` or `list_entities`).
-3. For state-changing actions, always follow: discover -> act -> verify.
-4. Verification is mandatory: call `get_entity` with `fields: ["state"]` after each action.
-5. Never report success from tool status alone. Report success only from verified post-action state.
-6. If action result is ambiguous, retry once, then stop and surface exact error + current state.
-7. Use read tools first when uncertain (`domain_summary_tool`, `system_overview`, `list_automations`, `get_history`, `get_error_log`).
-8. For Home Assistant action tools, do not send empty optional slots. Omit unset fields entirely (avoid `[]`, `""`, `null` placeholders).
-9. For `HassTurnOn`/`HassTurnOff`, prefer minimal valid arguments first (often `name` only), then add `area`/`floor`/`domain` only if disambiguation is needed.
-10. If `HassTurnOn`/`HassTurnOff` tool family is available, prefer it over legacy `entity_action`/`call_service_tool`.
-11. Performance default: do not run multiple discovery calls when the first call returns a unique actionable target.
-12. Use smallest useful query limits (`search_entities_tool` limit ~5-20). Avoid wide scans (`limit: 100`) unless explicitly needed.
-13. Keep response text brief for routine actions: one line outcome + verified state.
+2. For simple control requests, use action tools first, then verify.
+3. For state-changing actions, always follow: discover (if needed) -> act -> verify.
+4. Verification is mandatory. Report success only from verified post-action state.
+5. If result is ambiguous, retry once, then stop and surface exact error + current state.
+6. Performance default: do not run multiple discovery calls when the first call returns a unique actionable target.
+7. Use minimal discovery (`GetLiveContext` once, then act). Avoid repeated broad scans unless needed.
+8. Keep routine action responses brief: one line outcome + verified state.
+9. For Home Assistant action tools, do not send empty optional slots. Omit unset fields entirely (avoid `[]`, `""`, `null` placeholders).
+10. For `HassTurnOn`/`HassTurnOff`, start with minimal args (`name` only) and add `area`/`floor`/`domain` only for disambiguation.
 
 ### MCP tool reference
-| Tool | Parameters | Notes |
-|------|-----------|-------|
-| `search_entities_tool` | `query` (str), `limit` (int, default 20) | Find likely entity IDs quickly |
-| `get_entity` | `entity_id` (str), `fields` (list), `detailed` (bool) | **`fields` MUST be a list**: `["state"]` not `"state"` |
-| `list_entities` | `domain` (str?), `search_query` (str?), `limit` (int), `fields` (list?), `detailed` (bool) | Best for domain-scoped discovery |
-| `domain_summary_tool` | `domain` (str) | Fast domain health snapshot |
-| `system_overview` | none | Broad system context |
-| `list_automations` | none | Automation inventory and status |
-| `get_history` | `entity_id` (str), `hours` (int, default 24) | Verify behavior over time |
-| `get_error_log` | none | Check runtime failures |
-| `get_version` | none | HA/core integration version checks |
-| `call_service_tool` | `domain` (str), `service` (str), `data` (dict) | Primary general action method |
-| `entity_action` | `entity_id` (str), `action` (str), `params` (dict?) | Simple on/off/toggle actions |
+| Tool | When to use | Notes |
+|------|-------------|-------|
+| `HassTurnOn` / `HassTurnOff` | Primary on/off/enable/disable | Prefer these first in Agent Builder integrations |
+| `HassLightSet` | Brightness/color/temp changes | `brightness` is 0-100 |
+| `HassClimateSetTemperature` | Thermostat setpoint updates | Pass `temperature` + minimal target selectors |
+| `HassSetVolume` / `HassSetVolumeRelative` | Media volume control | Use relative step for quick adjustments |
+| `HassMediaPause` / `HassMediaUnpause` / `HassMediaNext` / `HassMediaPrevious` | Media transport | Keep targeting minimal |
+| `HassBroadcast` | Whole-home TTS/message | `message` only |
+| `todo_get_items` / `HassListAddItem` / `HassListCompleteItem` | Todo list workflows | Prefer list read before write |
+| `GetLiveContext` | Discovery and verification | Broad snapshot, use when needed |
 
 ### Tool gotchas and error handling
-- `get_entity` `fields` must be a list, not a string.
-- Prefer `HassTurnOn`/`HassTurnOff` where available (cleaner action contract, less response-shape ambiguity).
-- `entity_action` values are `"on"`, `"off"`, `"toggle"` (not `"turn_on"`/`"turn_off"`).
-- In assistants that expose `HassTurnOn`/`HassTurnOff`, empty optional slots can trigger "invalid slot info" errors. Pass only populated fields.
-- In some `hass-mcp` versions, action tools may return response-type validation errors even when HA applied the action.
-- Treat those errors as ambiguous results, not automatic success or failure.
-- Immediate follow-up check:
-  `get_entity(entity_id=..., fields=["state"])`
-- If state matches target: report success.
-- If state does not match target: retry action once and re-check.
-- If still not matched: report failure with exact error and observed state.
+- For Hass* action tools, empty optional slots can trigger "invalid slot info". Send only populated fields.
+- For `HassTurnOn` / `HassTurnOff`, targeting order:
+  1) `name`
+  2) `name + area`
+  3) `name + area + domain`
+- Avoid passing empty arrays for `domain` / `device_class`.
 
 ### Practical playbooks
 1. Toggle device
-   - Fast path: single `search_entities_tool` -> act -> single `get_entity` verify.
-   - Only use `list_entities` or additional search if the first match is ambiguous.
+   - Hass* fast path: `HassTurnOn/HassTurnOff` (minimal args) -> verify via `GetLiveContext` (or targeted read tool if available).
 2. Set a value (brightness/temperature/mode)
-   - Discover entity -> call specific service with `data` -> verify changed state/attributes.
+   - Use dedicated tool (`HassLightSet`, `HassClimateSetTemperature`, volume/media tools) -> verify.
 3. Debug "automation didn't run"
-   - `list_automations` -> check related entity history (`get_history`) -> inspect `get_error_log`.
+   - Use `GetLiveContext` + focused follow-up checks.
 
 ---
 

@@ -2,6 +2,14 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.10] - 2026-02-19
+
+### Changed
+- Removed `hass-mcp` as an installed dependency from the add-on image.
+- Updated Home Assistant MCP launcher to support only Hass* MCP backends (`homeassistant-mcp`, `home-assistant-mcp`, `ha-mcp`) and fail fast if none are present.
+- Removed legacy `hass-mcp` guidance from `AGENTS.md` and aligned action guidance with the Hass* toolset.
+- Updated README troubleshooting and AppArmor wording to reflect Home Assistant MCP-only behavior.
+
 ## [1.5.9] - 2026-02-19
 
 ### Changed
