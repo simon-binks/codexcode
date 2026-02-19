@@ -19,6 +19,8 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 5. Never report success from tool status alone. Report success only from verified post-action state.
 6. If action result is ambiguous, retry once, then stop and surface exact error + current state.
 7. Use read tools first when uncertain (`domain_summary_tool`, `system_overview`, `list_automations`, `get_history`, `get_error_log`).
+8. For Home Assistant action tools, do not send empty optional slots. Omit unset fields entirely (avoid `[]`, `""`, `null` placeholders).
+9. For `HassTurnOn`/`HassTurnOff`, prefer minimal valid arguments first (often `name` only), then add `area`/`floor`/`domain` only if disambiguation is needed.
 
 ### MCP tool reference
 | Tool | Parameters | Notes |
@@ -38,6 +40,7 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 ### Tool gotchas and error handling
 - `get_entity` `fields` must be a list, not a string.
 - `entity_action` values are `"on"`, `"off"`, `"toggle"` (not `"turn_on"`/`"turn_off"`).
+- In assistants that expose `HassTurnOn`/`HassTurnOff`, empty optional slots can trigger "invalid slot info" errors. Pass only populated fields.
 - In some `hass-mcp` versions, action tools may return response-type validation errors even when HA applied the action.
 - Treat those errors as ambiguous results, not automatic success or failure.
 - Immediate follow-up check:

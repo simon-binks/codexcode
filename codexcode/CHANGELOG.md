@@ -2,6 +2,13 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.7] - 2026-02-19
+
+### Changed
+- Updated `AGENTS.md` MCP action guidance to avoid sending empty optional slots (`[]`, `\"\"`, `null`) to Home Assistant tools.
+- Added explicit rule to prefer minimal `HassTurnOn`/`HassTurnOff` calls (e.g., `name` only) and only add extra fields for disambiguation.
+- Documented `invalid slot info` as a slot-formatting issue and instructed retry with populated fields only.
+
 ## [1.5.6] - 2026-02-19
 
 ### Changed
