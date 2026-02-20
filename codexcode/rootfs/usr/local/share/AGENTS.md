@@ -22,6 +22,7 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 8. Keep routine action responses brief: one line outcome + verified state.
 9. For Home Assistant action tools, do not send empty optional slots. Omit unset fields entirely (avoid `[]`, `""`, `null` placeholders).
 10. For `HassTurnOn`/`HassTurnOff`, start with minimal args (`name` only) and add `area`/`floor`/`domain` only for disambiguation.
+11. If `Hass*` tools are unavailable in this session, switch to legacy flow: `search_entities_tool` -> `entity_action`/`call_service_tool` -> `get_entity` verification.
 
 ### MCP tool reference
 | Tool | When to use | Notes |
@@ -34,6 +35,8 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 | `HassBroadcast` | Whole-home TTS/message | `message` only |
 | `todo_get_items` / `HassListAddItem` / `HassListCompleteItem` | Todo list workflows | Prefer list read before write |
 | `GetLiveContext` | Discovery and verification | Broad snapshot, use when needed |
+| `search_entities_tool` / `get_entity` / `list_entities` | Legacy fallback discovery/verify | Use when Hass* tools are not available |
+| `entity_action` / `call_service_tool` | Legacy fallback actions | Always verify with `get_entity` |
 
 ### Tool gotchas and error handling
 - For Hass* action tools, empty optional slots can trigger "invalid slot info". Send only populated fields.

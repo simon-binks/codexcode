@@ -101,8 +101,10 @@ elif command -v home-assistant-mcp >/dev/null 2>&1; then
   exec home-assistant-mcp
 elif command -v ha-mcp >/dev/null 2>&1; then
   exec ha-mcp
+elif command -v hass-mcp >/dev/null 2>&1; then
+  exec hass-mcp
 else
-  echo "[ERROR] No supported Home Assistant MCP server binary found (tried: homeassistant-mcp, home-assistant-mcp, ha-mcp)" >&2
+  echo "[ERROR] No supported Home Assistant MCP server binary found (tried: homeassistant-mcp, home-assistant-mcp, ha-mcp, hass-mcp)" >&2
   exit 127
 fi
 LAUNCHEREOF

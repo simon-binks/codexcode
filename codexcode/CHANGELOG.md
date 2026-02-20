@@ -2,6 +2,13 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.11] - 2026-02-19
+
+### Fixed
+- Restored Home Assistant MCP startup compatibility by reinstalling `hass-mcp` in the image.
+- Restored launcher fallback to `hass-mcp` when Hass* MCP binaries (`homeassistant-mcp`, `home-assistant-mcp`, `ha-mcp`) are not present.
+- Fixes MCP client startup/handshake failures introduced in 1.5.10 on systems without a Hass* MCP binary installed.
+
 ## [1.5.10] - 2026-02-19
 
 ### Changed
