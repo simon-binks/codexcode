@@ -23,6 +23,7 @@ Use Home Assistant MCP with these priorities:
 - Avoid full entity dumps unless explicitly asked.
 - Prefer targeted domain/entity queries.
 - For actions, always verify final entity state and report success/failure from readback state.
+- For routine device commands, do not output planning narration; execute tools directly and respond concisely.
 - Refer to your AGENTS.md context for YAML syntax, service calls, templates, and automation patterns.
 DOCEOF
 
@@ -87,28 +88,20 @@ fi
 MCP_HA_CWD="${PERSIST_DIR}/mcp/homeassistant"
 mkdir -p "${MCP_HA_CWD}"
 
-# Launcher script — reads SUPERVISOR_TOKEN at runtime, never bakes it in.
-# This add-on only supports Home Assistant MCP backends that expose Hass* tools.
-cat > "${MCP_HA_CWD}/ha-mcp-launcher.sh" <<'LAUNCHEREOF'
+# Legacy launcher script — reads SUPERVISOR_TOKEN at runtime, never bakes it in.
+# Used only for fallback/extra capability via hass-mcp.
+cat > "${MCP_HA_CWD}/ha-mcp-legacy-launcher.sh" <<'LAUNCHEREOF'
 #!/usr/bin/env bash
 export HA_URL="http://supervisor/core"
 export HA_TOKEN="${SUPERVISOR_TOKEN}"
-
-# Prefer HA MCP servers that expose tool families like HassTurnOn/HassTurnOff.
-if command -v homeassistant-mcp >/dev/null 2>&1; then
-  exec homeassistant-mcp
-elif command -v home-assistant-mcp >/dev/null 2>&1; then
-  exec home-assistant-mcp
-elif command -v ha-mcp >/dev/null 2>&1; then
-  exec ha-mcp
-elif command -v hass-mcp >/dev/null 2>&1; then
+if command -v hass-mcp >/dev/null 2>&1; then
   exec hass-mcp
 else
-  echo "[ERROR] No supported Home Assistant MCP server binary found (tried: homeassistant-mcp, home-assistant-mcp, ha-mcp, hass-mcp)" >&2
+  echo "[ERROR] hass-mcp is not installed; cannot start legacy MCP fallback" >&2
   exit 127
 fi
 LAUNCHEREOF
-chmod 700 "${MCP_HA_CWD}/ha-mcp-launcher.sh"
+chmod 700 "${MCP_HA_CWD}/ha-mcp-legacy-launcher.sh"
 
 # Build config.toml — preserve auth.json and any user customisations
 # by merging MCP sections on top of existing config
@@ -133,12 +126,18 @@ chmod 700 "${MCP_HA_CWD}/ha-mcp-launcher.sh"
     cat <<MCPEOF
 
 [mcp_servers.homeassistant]
-command = "${MCP_HA_CWD}/ha-mcp-launcher.sh"
+url = "http://supervisor/core/api/mcp"
+bearer_token_env_var = "SUPERVISOR_TOKEN"
+startup_timeout_sec = 15.0
+tool_timeout_sec = 30.0
+
+[mcp_servers.homeassistant_legacy]
+command = "${MCP_HA_CWD}/ha-mcp-legacy-launcher.sh"
 args = []
 startup_timeout_sec = 15.0
 tool_timeout_sec = 30.0
 
-[mcp_servers.homeassistant.env]
+[mcp_servers.homeassistant_legacy.env]
 SUPERVISOR_TOKEN = "${SUPERVISOR_TOKEN:-}"
 MCPEOF
   fi
@@ -159,7 +158,8 @@ mv "${CONFIG_TOML}.tmp" "${CONFIG_TOML}"
 
 # Log what was configured (to stdout, not into the config file)
 if [ "${ENABLE_MCP}" = "true" ]; then
-  echo "[INFO] MCP 'homeassistant' configured (token passed at runtime via launcher)"
+  echo "[INFO] MCP 'homeassistant' configured (HTTP primary via Supervisor /api/mcp)"
+  echo "[INFO] MCP 'homeassistant_legacy' configured (stdio fallback via hass-mcp)"
 else
   echo "[INFO] MCP disabled"
 fi

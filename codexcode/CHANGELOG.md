@@ -2,6 +2,21 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.13] - 2026-02-20
+
+### Changed
+- Switched Home Assistant MCP primary server to HTTP MCP at `http://supervisor/core/api/mcp` using `SUPERVISOR_TOKEN` bearer auth.
+- Added dual-server setup: `homeassistant` (HTTP primary) + `homeassistant_legacy` (`hass-mcp` fallback/extra capability).
+- Updated startup MCP generation/logging to reflect primary HTTP + legacy fallback wiring.
+- Updated `AGENTS.md` to explicitly prioritize `homeassistant` (Hass* tools) and only use `homeassistant_legacy` for missing capabilities.
+
+## [1.5.12] - 2026-02-20
+
+### Changed
+- Tightened `AGENTS.md` MCP action rules to force a minimal legacy flow for routine on/off commands: at most one search, one action, one verification.
+- Added explicit instruction to suppress planning narration for routine HA control requests and return concise outcomes.
+- Updated startup `SESSION_PROMPT.txt` guidance to execute routine MCP commands directly without verbose preambles.
+
 ## [1.5.11] - 2026-02-19
 
 ### Fixed

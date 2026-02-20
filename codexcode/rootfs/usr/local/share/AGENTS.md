@@ -10,10 +10,13 @@ in HA Core documentation).
 ## 0. MCP Tool Usage — READ THIS FIRST
 
 You have Home Assistant MCP tools. Use MCP as the primary interaction layer for reads and actions.
+This add-on provides two HA MCP servers:
+- `homeassistant` = HTTP MCP via Home Assistant Supervisor endpoint (`/api/mcp`) (PRIMARY).
+- `homeassistant_legacy` = local `hass-mcp` stdio server (FALLBACK/EXTRA TOOLS).
 
 ### Core behavior rules
 1. Prefer targeted queries (`domain`, `entity_id`, search terms). Avoid full dumps unless requested.
-2. For simple control requests, use action tools first, then verify.
+2. For simple control requests, use `homeassistant` (HTTP/Hass*) action tools first, then verify.
 3. For state-changing actions, always follow: discover (if needed) -> act -> verify.
 4. Verification is mandatory. Report success only from verified post-action state.
 5. If result is ambiguous, retry once, then stop and surface exact error + current state.
@@ -22,12 +25,20 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 8. Keep routine action responses brief: one line outcome + verified state.
 9. For Home Assistant action tools, do not send empty optional slots. Omit unset fields entirely (avoid `[]`, `""`, `null` placeholders).
 10. For `HassTurnOn`/`HassTurnOff`, start with minimal args (`name` only) and add `area`/`floor`/`domain` only for disambiguation.
-11. If `Hass*` tools are unavailable in this session, switch to legacy flow: `search_entities_tool` -> `entity_action`/`call_service_tool` -> `get_entity` verification.
+11. If `Hass*` tools are unavailable in this session, switch to legacy flow on `homeassistant_legacy`: `search_entities_tool` -> `entity_action`/`call_service_tool` -> `get_entity` verification.
+12. Do not narrate planning/thinking for routine control commands (no "I'm considering/planning"). Execute directly.
+13. Legacy fast path for simple on/off:
+   - If user gives exact `entity_id`, skip discovery.
+   - Else run exactly one `search_entities_tool` query (limit <= 20).
+   - If one clear match, run one `entity_action` (`on`/`off`) then one `get_entity` verify (`fields: ["state"]`).
+   - Do not run `list_entities` or extra searches unless the first search is ambiguous.
+14. Cache resolved entity targets in-session and reuse them to avoid repeated discovery.
+15. Do not mix both MCP servers in the same routine command unless primary is missing a required capability.
 
 ### MCP tool reference
 | Tool | When to use | Notes |
 |------|-------------|-------|
-| `HassTurnOn` / `HassTurnOff` | Primary on/off/enable/disable | Prefer these first in Agent Builder integrations |
+| `HassTurnOn` / `HassTurnOff` | Primary on/off/enable/disable | Use on `homeassistant` server first |
 | `HassLightSet` | Brightness/color/temp changes | `brightness` is 0-100 |
 | `HassClimateSetTemperature` | Thermostat setpoint updates | Pass `temperature` + minimal target selectors |
 | `HassSetVolume` / `HassSetVolumeRelative` | Media volume control | Use relative step for quick adjustments |
@@ -35,8 +46,8 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
 | `HassBroadcast` | Whole-home TTS/message | `message` only |
 | `todo_get_items` / `HassListAddItem` / `HassListCompleteItem` | Todo list workflows | Prefer list read before write |
 | `GetLiveContext` | Discovery and verification | Broad snapshot, use when needed |
-| `search_entities_tool` / `get_entity` / `list_entities` | Legacy fallback discovery/verify | Use when Hass* tools are not available |
-| `entity_action` / `call_service_tool` | Legacy fallback actions | Always verify with `get_entity` |
+| `search_entities_tool` / `get_entity` / `list_entities` | Legacy fallback discovery/verify | Use on `homeassistant_legacy` when HTTP tools are unavailable/missing |
+| `entity_action` / `call_service_tool` | Legacy fallback actions | Use on `homeassistant_legacy`; always verify with `get_entity` |
 
 ### Tool gotchas and error handling
 - For Hass* action tools, empty optional slots can trigger "invalid slot info". Send only populated fields.
@@ -45,6 +56,7 @@ You have Home Assistant MCP tools. Use MCP as the primary interaction layer for 
   2) `name + area`
   3) `name + area + domain`
 - Avoid passing empty arrays for `domain` / `device_class`.
+- If `entity_action` returns a tool response-format error but verified state changed, report success from `get_entity` verification without extra retries.
 
 ### Practical playbooks
 1. Toggle device
