@@ -2,6 +2,12 @@
 
 All notable changes to this add-on are documented here.
 
+## [1.5.15] - 2026-02-20
+
+### Changed
+- Updated bundled Codex CLI install to `@openai/codex@0.104.0` in the image build.
+- Pins CLI version in Dockerfile to avoid stale cached layers keeping older Codex versions.
+
 ## [1.5.14] - 2026-02-20
 
 ### Changed
